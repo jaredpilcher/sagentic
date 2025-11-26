@@ -6,9 +6,9 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - telemetry_data:/app/data
+      - sagentic_data:/app/data
     environment:
-      - DATABASE_URL=sqlite:///./data/telemetry.db
+      - DATABASE_URL=sqlite:///./data/sagentic.db
 
 volumes:
-  telemetry_data:
+  sagentic_data:

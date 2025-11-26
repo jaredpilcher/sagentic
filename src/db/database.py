@@ -110,7 +110,7 @@ class DatasetItemDB(Base):
     dataset = relationship("DatasetDB", back_populates="items")
 
 # Database setup
-DATABASE_URL = "sqlite:///./telemetry.db"
+DATABASE_URL = "sqlite:///./sagentic.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

@@ -10,7 +10,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <aside className="w-64 border-r border-border bg-card/50 backdrop-blur-xl fixed h-full z-50">
                 <div className="p-6">
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                        Telemetrix
+                        Sagentic
                     </h1>
                 </div>
                 <nav className="px-4 space-y-2">
