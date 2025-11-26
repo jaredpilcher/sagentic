@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, String, DateTime, Text, ForeignKey, Float
+from sqlalchemy import create_engine, Column, String, DateTime, Text, ForeignKey, Float, Integer
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from datetime import datetime
 import json
@@ -77,6 +77,16 @@ class ScoreDB(Base):
     timestamp = Column(DateTime, nullable=False)
 
     run = relationship("Run", back_populates="scores")
+
+class PromptTemplateDB(Base):
+    __tablename__ = 'prompt_templates'
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    version = Column(Integer, nullable=False)
+    template = Column(Text, nullable=False)
+    input_variables_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 # Database setup
 DATABASE_URL = "sqlite:///./telemetry.db"

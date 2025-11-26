@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  telemetry:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - telemetry_data:/app/data
+    environment:
+      - DATABASE_URL=sqlite:///./data/telemetry.db
+
+volumes:
+  telemetry_data:

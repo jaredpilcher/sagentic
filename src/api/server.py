@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
-from ..core.models import AgentStep, IngestResponse, Span, SpanIngestResponse, Score, ScoreIngestResponse
+from ..core.models import AgentStep, IngestResponse, Span, SpanIngestResponse, Score, ScoreIngestResponse, PromptTemplate
 from ..core.service import TelemetryService
 from ..db.database import get_db, init_db, Step as DBStep
 import json
@@ -129,3 +129,57 @@ def get_step_details(step_id: str, db: Session = Depends(get_db)):
 
 
 
+
+@app.get("/api/generations")
+def list_generations(db: Session = Depends(get_db)):
+    service = TelemetryService(db)
+    spans = service.get_generations()
+    return [
+        {
+            "span_id": s.span_id,
+            "trace_id": s.trace_id,
+            "name": s.name,
+            "start_time": s.start_time,
+            "end_time": s.end_time,
+            "attributes": json.loads(s.attributes_json) if s.attributes_json else {},
+            "status_code": s.status_code
+        }
+        for s in spans
+    ]
+
+@app.post("/api/prompts")
+def create_prompt(prompt: PromptTemplate, db: Session = Depends(get_db)):
+    service = TelemetryService(db)
+    return service.create_prompt(prompt)
+
+@app.get("/api/prompts")
+def list_prompts(db: Session = Depends(get_db)):
+    service = TelemetryService(db)
+    prompts = service.get_prompts()
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "version": p.version,
+            "template": p.template,
+            "input_variables": json.loads(p.input_variables_json) if p.input_variables_json else [],
+            "created_at": p.created_at
+        }
+        for p in prompts
+    ]
+
+@app.get("/api/prompts/{name}")
+def get_prompt_history(name: str, db: Session = Depends(get_db)):
+    service = TelemetryService(db)
+    prompts = service.get_prompt_history(name)
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "version": p.version,
+            "template": p.template,
+            "input_variables": json.loads(p.input_variables_json) if p.input_variables_json else [],
+            "created_at": p.created_at
+        }
+        for p in prompts
+    ]

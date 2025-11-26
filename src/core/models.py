@@ -79,4 +79,12 @@ class ScoreIngestResponse(BaseModel):
     status: str
     score_id: str
 
+class PromptTemplate(BaseModel):
+    id: str
+    name: str
+    version: int
+    template: str
+    input_variables: List[str] = Field(default_factory=list)
+    created_at: datetime
+
 

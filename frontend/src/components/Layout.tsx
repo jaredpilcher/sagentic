@@ -1,6 +1,6 @@
 
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Settings } from 'lucide-react'
+import { LayoutDashboard, Settings, Sparkles, Terminal } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -15,6 +15,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </div>
                 <nav className="px-4 space-y-2">
                     <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
+                    <NavItem to="/generations" icon={Sparkles} label="Generations" />
+                    <NavItem to="/prompts" icon={Terminal} label="Prompts" />
                     <NavItem to="/settings" icon={Settings} label="Settings" />
                 </nav>
             </aside>

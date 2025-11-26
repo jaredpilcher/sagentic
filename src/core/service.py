@@ -151,3 +151,51 @@ class TelemetryService:
 
 
 
+
+    def get_generations(self):
+        from ..db.database import SpanDB
+        # Filter for LLM spans
+        return self.db.query(SpanDB).filter(SpanDB.span_kind == "LLM").order_by(SpanDB.start_time.desc()).limit(100).all()
+
+    def create_prompt(self, prompt):
+        from ..db.database import PromptTemplateDB
+        
+        # Check for existing version to increment
+        latest = self.db.query(PromptTemplateDB).filter(PromptTemplateDB.name == prompt.name).order_by(PromptTemplateDB.version.desc()).first()
+        version = 1
+        if latest:
+            version = latest.version + 1
+            
+        db_prompt = PromptTemplateDB(
+            id=str(uuid.uuid4()),
+            name=prompt.name,
+            version=version,
+            template=prompt.template,
+            input_variables_json=json.dumps(prompt.input_variables),
+            created_at=datetime.utcnow()
+        )
+        self.db.add(db_prompt)
+        self.db.commit()
+        return db_prompt
+
+    def get_prompts(self):
+        from ..db.database import PromptTemplateDB
+        from sqlalchemy import func
+        
+        # Get latest version of each prompt
+        subquery = self.db.query(
+            PromptTemplateDB.name,
+            func.max(PromptTemplateDB.version).label('max_version')
+        ).group_by(PromptTemplateDB.name).subquery()
+        
+        prompts = self.db.query(PromptTemplateDB).join(
+            subquery,
+            (PromptTemplateDB.name == subquery.c.name) & 
+            (PromptTemplateDB.version == subquery.c.max_version)
+        ).all()
+        
+        return prompts
+
+    def get_prompt_history(self, name: str):
+        from ..db.database import PromptTemplateDB
+        return self.db.query(PromptTemplateDB).filter(PromptTemplateDB.name == name).order_by(PromptTemplateDB.version.desc()).all()
