@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import axios from 'axios'
-import { Play, Zap, Save } from 'lucide-react'
+import { Play, Zap } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 export default function Playground() {

@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { Activity, ArrowRight, Bot, Clock, Search } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
 interface Run {
     id: string
@@ -38,6 +39,44 @@ export default function Dashboard() {
                 <StatCard title="Avg Latency" value="240ms" icon={Clock} />
             </div>
 
+            {/* Charts */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                    <h3 className="font-semibold mb-4">Latency Trend</h3>
+                    <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={runs.slice(0, 20).reverse()}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                <XAxis dataKey="created_at" tickFormatter={(t: string) => formatDistanceToNow(new Date(t))} stroke="hsl(var(--muted-foreground))" fontSize={10} />
+                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
+                                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                                />
+                                <Line type="monotone" dataKey="latency" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                    <h3 className="font-semibold mb-4">Run Volume</h3>
+                    <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={runs.slice(0, 20).reverse()}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                                <XAxis dataKey="created_at" tickFormatter={(t: string) => formatDistanceToNow(new Date(t))} stroke="hsl(var(--muted-foreground))" fontSize={10} />
+                                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
+                                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                                />
+                                <Bar dataKey="id" fill="hsl(var(--primary))" opacity={0.5} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </div>
 
 
             {/* Recent Runs List */}
@@ -97,7 +136,7 @@ export default function Dashboard() {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     )
 }
 

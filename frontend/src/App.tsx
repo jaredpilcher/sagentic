@@ -6,6 +6,7 @@ import Generations from './pages/Generations'
 import Prompts from './pages/Prompts'
 import Datasets from './pages/Datasets'
 import Playground from './pages/Playground'
+import Compare from './pages/Compare'
 import Layout from './components/Layout'
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
         <Route path="/prompts" element={<Prompts />} />
         <Route path="/datasets" element={<Datasets />} />
         <Route path="/playground" element={<Playground />} />
+        <Route path="/compare" element={<Compare />} />
         <Route path="/runs/:runId" element={<RunDetail />} />
       </Routes>
     </Layout>

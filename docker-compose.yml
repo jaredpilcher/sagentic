@@ -8,7 +8,21 @@ services:
     volumes:
       - sagentic_data:/app/data
     environment:
-      - DATABASE_URL=sqlite:///./data/sagentic.db
+      - DATABASE_URL=postgresql://user:password@db:5432/sagentic
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: sagentic
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
 
 volumes:
   sagentic_data:
+  postgres_data:

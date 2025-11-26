@@ -109,6 +109,25 @@ class DatasetItemDB(Base):
 
     dataset = relationship("DatasetDB", back_populates="items")
 
+class EvaluationResultDB(Base):
+    __tablename__ = 'evaluation_results'
+
+    id = Column(String, primary_key=True)
+    dataset_item_id = Column(String, ForeignKey('dataset_items.id'), nullable=False)
+    run_id = Column(String, ForeignKey('runs.id'), nullable=False)
+    score = Column(Float, nullable=False)
+    comment = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class ComparisonDB(Base):
+    __tablename__ = 'comparisons'
+
+    id = Column(String, primary_key=True)
+    base_run_id = Column(String, ForeignKey('runs.id'), nullable=False)
+    candidate_run_id = Column(String, ForeignKey('runs.id'), nullable=False)
+    metrics_json = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 # Database setup
 DATABASE_URL = "sqlite:///./sagentic.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})

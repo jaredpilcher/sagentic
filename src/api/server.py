@@ -8,6 +8,12 @@ from pydantic import BaseModel
 from ..core.service import TelemetryService
 from ..db.database import get_db, init_db, Step as DBStep
 import json
+from ..core.logging_config import configure_logging
+import structlog
+from ..engines.evaluator import Evaluator
+
+configure_logging()
+logger = structlog.get_logger()
 
 app = FastAPI(title="Agent Step Telemetry Service")
 
@@ -213,6 +219,32 @@ def add_dataset_item(dataset_id: str, item: DatasetItem, db: Session = Depends(g
     
     item.dataset_id = dataset_id # Override from URL
     return service.add_dataset_item(item)
+
+@app.post("/api/evaluations/run")
+def run_evaluation(run_id: str, dataset_id: str, db: Session = Depends(get_db)):
+    evaluator = Evaluator(db)
+    results = evaluator.evaluate_run(run_id, dataset_id)
+    return {"status": "ok", "count": len(results)}
+
+@app.get("/api/runs/{run_id}/evaluations")
+def get_run_evaluations(run_id: str, db: Session = Depends(get_db)):
+    evaluator = Evaluator(db)
+    return evaluator.get_evaluations(run_id)
+
+@app.get("/api/comparisons")
+def compare_runs(base_run_id: str, candidate_run_id: str, db: Session = Depends(get_db)):
+    # Mock comparison logic
+    # In a real app, this would diff the traces and scores
+    return {
+        "id": str(uuid.uuid4()),
+        "base_run_id": base_run_id,
+        "candidate_run_id": candidate_run_id,
+        "metrics": {
+            "latency_diff_ms": -50,
+            "score_diff": 0.1
+        },
+        "created_at": datetime.utcnow()
+    }
 
 class PlaygroundRequest(BaseModel):
     prompt: str

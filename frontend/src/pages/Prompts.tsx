@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { formatDistanceToNow } from 'date-fns'
-import { Copy, Plus, Search, Terminal } from 'lucide-react'
+import { Plus, Terminal } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 interface Prompt {

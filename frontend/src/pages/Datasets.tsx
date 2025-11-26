@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { formatDistanceToNow } from 'date-fns'
-import { Database, Plus, Search, ChevronRight } from 'lucide-react'
+import { Database, Plus, ChevronRight, Play } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 interface DatasetItem {
@@ -90,6 +90,21 @@ export default function Datasets() {
         }
     }
 
+    const handleRunEval = async (datasetId: string) => {
+        const runId = prompt("Enter Run ID to evaluate against:")
+        if (!runId) return
+
+        try {
+            await axios.post('http://localhost:3000/api/evaluations/run', null, {
+                params: { run_id: runId, dataset_id: datasetId }
+            })
+            alert("Evaluation started!")
+        } catch (err) {
+            console.error(err)
+            alert("Failed to start evaluation")
+        }
+    }
+
     return (
         <div className="space-y-8 h-[calc(100vh-8rem)] flex flex-col">
             <header className="flex justify-between items-start shrink-0">
@@ -168,8 +183,8 @@ export default function Datasets() {
                                 key={dataset.id}
                                 onClick={() => fetchDatasetDetails(dataset.id)}
                                 className={`bg-card border rounded-xl p-4 shadow-sm cursor-pointer transition-all ${selectedDataset?.id === dataset.id
-                                        ? 'border-primary ring-1 ring-primary'
-                                        : 'border-border hover:border-primary/50'
+                                    ? 'border-primary ring-1 ring-primary'
+                                    : 'border-border hover:border-primary/50'
                                     }`}
                             >
                                 <div className="flex justify-between items-start">
@@ -185,6 +200,16 @@ export default function Datasets() {
                                     <span>{dataset.items_count} items</span>
                                     <span>{formatDistanceToNow(new Date(dataset.created_at), { addSuffix: true })}</span>
                                 </div>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleRunEval(dataset.id)
+                                    }}
+                                    className="mt-3 w-full flex items-center justify-center gap-2 text-xs font-medium bg-secondary/50 hover:bg-secondary text-secondary-foreground py-1.5 rounded transition-colors"
+                                >
+                                    <Play className="w-3 h-3" />
+                                    Run Evaluation
+                                </button>
                             </motion.div>
                         ))
                     )}

@@ -1,7 +1,9 @@
-
 fastapi
 uvicorn
 sqlalchemy
 pydantic
 pytest
 httpx
+gunicorn
+psycopg2-binary
+structlog

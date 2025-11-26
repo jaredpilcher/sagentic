@@ -102,3 +102,17 @@ class Dataset(BaseModel):
     items: List[DatasetItem] = []
 
 
+class EvaluationResult(BaseModel):
+    id: str
+    dataset_item_id: str
+    run_id: str
+    score: float
+    comment: Optional[str] = None
+    created_at: datetime
+
+class Comparison(BaseModel):
+    id: str
+    base_run_id: str
+    candidate_run_id: str
+    metrics: Dict[str, Any]
+    created_at: datetime

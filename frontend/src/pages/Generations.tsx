@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { formatDistanceToNow } from 'date-fns'
-import { Activity, Clock, DollarSign, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 interface Generation {
@@ -86,8 +86,8 @@ export default function Generations() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-2 py-1 rounded text-xs font-medium ${gen.status_code === 'OK'
-                                                        ? 'bg-green-500/10 text-green-500'
-                                                        : 'bg-red-500/10 text-red-500'
+                                                    ? 'bg-green-500/10 text-green-500'
+                                                    : 'bg-red-500/10 text-red-500'
                                                     }`}>
                                                     {gen.status_code}
                                                 </span>

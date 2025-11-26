@@ -1,7 +1,6 @@
 
 import { useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { format } from 'date-fns'
 import { cn } from '../lib/utils'
 
 interface Span {
@@ -22,7 +21,7 @@ interface TraceViewProps {
 
 export default function TraceView({ spans }: TraceViewProps) {
     // 1. Calculate relative timings
-    const { minTime, maxTime, duration } = useMemo(() => {
+    const { minTime, duration } = useMemo(() => {
         if (spans.length === 0) return { minTime: 0, maxTime: 0, duration: 0 }
 
         const times = spans.flatMap(s => [
@@ -33,7 +32,7 @@ export default function TraceView({ spans }: TraceViewProps) {
         const min = Math.min(...times)
         const max = Math.max(...times)
 
-        return { minTime: min, maxTime: max, duration: max - min }
+        return { minTime: min, duration: max - min }
     }, [spans])
 
     // 2. Build tree structure (flat list with depth for rendering)

@@ -71,7 +71,7 @@ export default function RunDetail() {
 
         axios.get(`http://localhost:3000/api/runs/${runId}/spans`)
             .then(res => setSpans(res.data))
-            .catch(err => console.log("No spans found or error fetching spans"))
+            .catch(() => console.log("No spans found or error fetching spans"))
 
         fetchScores()
     }, [runId])
@@ -362,10 +362,4 @@ function Section({ title, icon: Icon, children }: { title: string; icon: any; ch
 }
 
 
-function CodeBlock({ content }: { content: string; language?: string }) {
-    return (
-        <div className="bg-muted/50 rounded-lg p-4 font-mono text-sm overflow-x-auto border border-border/50">
-            <pre className="whitespace-pre-wrap break-words">{content}</pre>
-        </div>
-    )
-}
+
