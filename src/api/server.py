@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
-from ..core.models import AgentStep, IngestResponse, Span, SpanIngestResponse
+from ..core.models import AgentStep, IngestResponse, Span, SpanIngestResponse, Score, ScoreIngestResponse
 from ..core.service import TelemetryService
 from ..db.database import get_db, init_db, Step as DBStep
 import json
@@ -32,11 +32,22 @@ async def ingest_span(span: Span, db: Session = Depends(get_db)):
     service = TelemetryService(db)
     return await service.ingest_span(span)
 
+@app.post("/api/scores", response_model=ScoreIngestResponse)
+async def ingest_score(score: Score, db: Session = Depends(get_db)):
+    service = TelemetryService(db)
+    return await service.ingest_score(score)
+
 @app.get("/api/runs")
 def list_runs(db: Session = Depends(get_db)):
     service = TelemetryService(db)
     runs = service.get_runs()
-    return [{"id": r.id, "agent_id": r.agent_id, "created_at": r.created_at} for r in runs]
+    return [{
+        "id": r.id, 
+        "agent_id": r.agent_id, 
+        "created_at": r.created_at,
+        "tags": json.loads(r.tags_json) if r.tags_json else []
+    } for r in runs]
+
 
 @app.get("/api/runs/{run_id}/steps")
 def list_run_steps(run_id: str, db: Session = Depends(get_db)):
@@ -62,6 +73,24 @@ def list_run_spans(run_id: str, db: Session = Depends(get_db)):
         }
         for s in spans
     ]
+
+@app.get("/api/runs/{run_id}/scores")
+def list_run_scores(run_id: str, db: Session = Depends(get_db)):
+    service = TelemetryService(db)
+    scores = service.get_run_scores(run_id)
+    return [
+        {
+            "score_id": s.score_id,
+            "trace_id": s.trace_id,
+            "span_id": s.span_id,
+            "name": s.name,
+            "value": s.value,
+            "comment": s.comment,
+            "timestamp": s.timestamp
+        }
+        for s in scores
+    ]
+
 
 
 @app.get("/api/steps/{step_id}")
@@ -98,8 +127,5 @@ def get_step_details(step_id: str, db: Session = Depends(get_db)):
         "analyses": analyses
     }
 
-@app.post("/api/spans", response_model=IngestResponse) # Should be SpanIngestResponse but reusing for simplicity or need to import
-async def ingest_span(span: AgentStep, db: Session = Depends(get_db)): # Type hint wrong, need Span
-    # Let's fix imports first
-    pass
+
 

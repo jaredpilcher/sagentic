@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 import random
+import json
 from datetime import datetime, timedelta
 import requests
 from src.core.models import AgentStep, Prompt, ToolTrace
@@ -32,8 +33,27 @@ async def seed():
         start_time = datetime.utcnow() - timedelta(days=random.randint(0, 7))
         topic = random.choice(TOPICS)
         
+        # Create run
+        run = Run(id=run_id, agent_id=agent_id, created_at=datetime.utcnow(), tags_json=json.dumps(["test-tag", "auto-generated"]))
+        db.add(run)
+        db.commit()
+        
         print(f"Creating run {run_id} for {agent_id} on '{topic}'")
         
+        # Add scores to this run
+        try:
+            requests.post("http://localhost:3000/api/scores", json={
+                "score_id": str(uuid.uuid4()),
+                "trace_id": run_id,
+                "name": "user_feedback",
+                "value": 1.0,
+                "comment": "Great response!",
+                "timestamp": datetime.utcnow().isoformat()
+            })
+        except Exception as e:
+            print(f"Failed to seed score: {e}")
+
+        # Create steps
         # 1. User Step
         step1_id = str(uuid.uuid4())
         step1 = AgentStep(
@@ -166,6 +186,33 @@ def seed_spans(run_id: str):
 
     print(f"Seeded spans for run {run_id}")
 
+def seed_scores(run_id: str):
+    import uuid
+    from datetime import datetime
+    
+    # Seed a user feedback score
+    requests.post("http://localhost:3000/api/scores", json={
+        "score_id": str(uuid.uuid4()),
+        "trace_id": run_id,
+        "name": "user_feedback",
+        "value": 1.0,
+        "comment": "Great response!",
+        "timestamp": datetime.utcnow().isoformat()
+    })
+    
+    # Seed an automated hallucination score
+    requests.post("http://localhost:3000/api/scores", json={
+        "score_id": str(uuid.uuid4()),
+        "trace_id": run_id,
+        "name": "hallucination_score",
+        "value": 0.05,
+        "comment": "Low probability of hallucination",
+        "timestamp": datetime.utcnow().isoformat()
+    })
+    
+    print(f"Seeded scores for run {run_id}")
+
+
 if __name__ == "__main__":
     # Create a new run for traces
     run_id = str(uuid.uuid4())
@@ -180,4 +227,5 @@ if __name__ == "__main__":
     })
     
     seed_spans(run_id)
+    seed_scores(run_id)
     asyncio.run(seed())

@@ -10,6 +10,7 @@ interface Run {
     id: string
     agent_id: string
     created_at: string
+    tags: string[]
 }
 
 export default function Dashboard() {
@@ -36,6 +37,8 @@ export default function Dashboard() {
                 <StatCard title="Active Agents" value={new Set(runs.map(r => r.agent_id)).size} icon={Bot} />
                 <StatCard title="Avg Latency" value="240ms" icon={Clock} />
             </div>
+
+
 
             {/* Recent Runs List */}
             <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
@@ -73,6 +76,13 @@ export default function Dashboard() {
                                         <div>
                                             <div className="font-medium text-foreground">{run.agent_id}</div>
                                             <div className="text-xs text-muted-foreground font-mono">{run.id.slice(0, 8)}...</div>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                {run.tags && run.tags.length > 0 && run.tags.map(tag => (
+                                                    <span key={tag} className="px-1.5 py-0.5 bg-accent rounded text-[10px] font-medium text-muted-foreground">
+                                                        {tag}
+                                                    </span>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-6">

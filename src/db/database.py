@@ -1,5 +1,4 @@
-
-from sqlalchemy import create_engine, Column, String, DateTime, Text, ForeignKey
+from sqlalchemy import create_engine, Column, String, DateTime, Text, ForeignKey, Float
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from datetime import datetime
 import json
@@ -12,9 +11,11 @@ class Run(Base):
     id = Column(String, primary_key=True)
     agent_id = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    tags_json = Column(Text, nullable=True)
     
     steps = relationship("Step", back_populates="run")
     spans = relationship("SpanDB", back_populates="run")
+    scores = relationship("ScoreDB", back_populates="run")
 
 class Step(Base):
     __tablename__ = 'steps'
@@ -63,6 +64,19 @@ class SpanDB(Base):
     events_json = Column(Text, nullable=True)
 
     run = relationship("Run", back_populates="spans")
+
+class ScoreDB(Base):
+    __tablename__ = 'scores'
+
+    score_id = Column(String, primary_key=True)
+    trace_id = Column(String, ForeignKey('runs.id'), nullable=False)
+    span_id = Column(String, nullable=True)
+    name = Column(String, nullable=False)
+    value = Column(Float, nullable=False)
+    comment = Column(Text, nullable=True)
+    timestamp = Column(DateTime, nullable=False)
+
+    run = relationship("Run", back_populates="scores")
 
 # Database setup
 DATABASE_URL = "sqlite:///./telemetry.db"

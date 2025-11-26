@@ -113,8 +113,41 @@ class TelemetryService:
             "trace_id": span.trace_id
         }
 
+    async def ingest_score(self, score):
+        from ..db.database import ScoreDB
+        
+        # Ensure Run exists
+        run = self.db.query(Run).filter(Run.id == score.trace_id).first()
+        if not run:
+            # Should probably error here in real life, but auto-create for now
+            run = Run(id=score.trace_id, agent_id="unknown", created_at=datetime.utcnow())
+            self.db.add(run)
+            self.db.commit()
+
+        db_score = ScoreDB(
+            score_id=score.score_id,
+            trace_id=score.trace_id,
+            span_id=score.span_id,
+            name=score.name,
+            value=score.value,
+            comment=score.comment,
+            timestamp=score.timestamp
+        )
+        self.db.add(db_score)
+        self.db.commit()
+
+        return {
+            "status": "logged",
+            "score_id": score.score_id
+        }
+
     def get_run_spans(self, run_id: str):
         from ..db.database import SpanDB
         return self.db.query(SpanDB).filter(SpanDB.trace_id == run_id).order_by(SpanDB.start_time.asc()).all()
+
+    def get_run_scores(self, run_id: str):
+        from ..db.database import ScoreDB
+        return self.db.query(ScoreDB).filter(ScoreDB.trace_id == run_id).order_by(ScoreDB.timestamp.desc()).all()
+
 
 

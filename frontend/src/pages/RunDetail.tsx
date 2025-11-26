@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
 import { format } from 'date-fns'
-import { Bot, User, Terminal, Cpu, Layers, Activity } from 'lucide-react'
+import { Bot, User, Terminal, Cpu, Layers, Activity, ThumbsUp, ThumbsDown, MessageSquare } from 'lucide-react'
 import { cn } from '../lib/utils'
 import TraceView from '../components/TraceView'
 
@@ -36,15 +36,31 @@ interface Span {
     status_code: 'OK' | 'ERROR'
 }
 
+interface Score {
+    score_id: string
+    trace_id: string
+    name: string
+    value: number // Changed from float to number for TypeScript
+    comment?: string
+    timestamp: string
+}
+
 export default function RunDetail() {
     const { runId } = useParams()
-    const [activeTab, setActiveTab] = useState<'timeline' | 'trace'>('timeline')
+    const [activeTab, setActiveTab] = useState<'timeline' | 'trace' | 'evals'>('timeline')
 
     const [steps, setSteps] = useState<Step[]>([])
     const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
     const [stepDetail, setStepDetail] = useState<StepDetail | null>(null)
 
     const [spans, setSpans] = useState<Span[]>([])
+    const [scores, setScores] = useState<Score[]>([])
+
+    const fetchScores = () => {
+        axios.get(`http://localhost:3000/api/runs/${runId}/scores`)
+            .then(res => setScores(res.data))
+            .catch(err => console.log("Error fetching scores", err))
+    }
 
     useEffect(() => {
         axios.get(`http://localhost:3000/api/runs/${runId}/steps`)
@@ -56,6 +72,8 @@ export default function RunDetail() {
         axios.get(`http://localhost:3000/api/runs/${runId}/spans`)
             .then(res => setSpans(res.data))
             .catch(err => console.log("No spans found or error fetching spans"))
+
+        fetchScores()
     }, [runId])
 
     useEffect(() => {
@@ -64,6 +82,19 @@ export default function RunDetail() {
                 .then(res => setStepDetail(res.data))
         }
     }, [selectedStepId, activeTab])
+
+    const submitScore = (name: string, value: number) => {
+        const scoreId = crypto.randomUUID()
+        axios.post('http://localhost:3000/api/scores', {
+            score_id: scoreId,
+            trace_id: runId,
+            name: name,
+            value: value,
+            timestamp: new Date().toISOString()
+        }).then(() => {
+            fetchScores()
+        })
+    }
 
     return (
         <div className="h-[calc(100vh-8rem)] flex flex-col gap-4">
@@ -89,11 +120,69 @@ export default function RunDetail() {
                     <Layers className="w-4 h-4" />
                     Trace View
                 </button>
+                <button
+                    onClick={() => setActiveTab('evals')}
+                    className={cn(
+                        "px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2",
+                        activeTab === 'evals' ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent"
+                    )}
+                >
+                    <MessageSquare className="w-4 h-4" />
+                    Evaluations
+                </button>
             </div>
 
             {activeTab === 'trace' ? (
                 <div className="flex-1 bg-card border border-border rounded-xl p-6 overflow-y-auto">
                     <TraceView spans={spans} />
+                </div>
+            ) : activeTab === 'evals' ? (
+                <div className="flex-1 bg-card border border-border rounded-xl p-6 overflow-y-auto">
+                    <div className="max-w-2xl mx-auto space-y-8">
+                        <div className="bg-muted/30 p-6 rounded-xl border border-border">
+                            <h3 className="text-lg font-semibold mb-4">Add Evaluation</h3>
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => submitScore('user_feedback', 1.0)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-500 border border-green-500/20 rounded-md hover:bg-green-500/20 transition-colors"
+                                >
+                                    <ThumbsUp className="w-4 h-4" />
+                                    Thumbs Up
+                                </button>
+                                <button
+                                    onClick={() => submitScore('user_feedback', 0.0)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-md hover:bg-red-500/20 transition-colors"
+                                >
+                                    <ThumbsDown className="w-4 h-4" />
+                                    Thumbs Down
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 className="text-lg font-semibold mb-4">Score History</h3>
+                            <div className="space-y-3">
+                                {scores.length === 0 ? (
+                                    <div className="text-muted-foreground text-sm">No evaluations yet.</div>
+                                ) : (
+                                    scores.map(score => (
+                                        <div key={score.score_id} className="flex items-center justify-between p-4 bg-card border border-border rounded-lg">
+                                            <div className="flex items-center gap-3">
+                                                {score.name === 'user_feedback' && (
+                                                    score.value === 1.0 ? <ThumbsUp className="w-5 h-5 text-green-500" /> : <ThumbsDown className="w-5 h-5 text-red-500" />
+                                                )}
+                                                <div>
+                                                    <div className="font-medium">{score.name}</div>
+                                                    <div className="text-xs text-muted-foreground">{format(new Date(score.timestamp), 'PPpp')}</div>
+                                                </div>
+                                            </div>
+                                            <div className="font-mono font-semibold text-lg">{score.value}</div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             ) : (
                 <div className="flex-1 flex gap-6 overflow-hidden">

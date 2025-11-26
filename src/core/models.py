@@ -40,6 +40,15 @@ class Span(BaseModel):
     status_code: SpanStatus = SpanStatus.OK
     events: List[Dict[str, Any]] = Field(default_factory=list)
 
+class Score(BaseModel):
+    score_id: str
+    trace_id: str
+    span_id: Optional[str] = None
+    name: str
+    value: float
+    comment: Optional[str] = None
+    timestamp: datetime
+
 class AgentStep(BaseModel):
     run_id: str
     step_id: str
@@ -49,6 +58,7 @@ class AgentStep(BaseModel):
     prompt: Prompt
     response: Optional[str] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    tags: List[str] = Field(default_factory=list)
 
 class AnalysisResult(BaseModel):
     engine_id: str
@@ -64,4 +74,9 @@ class SpanIngestResponse(BaseModel):
     status: str
     span_id: str
     trace_id: str
+
+class ScoreIngestResponse(BaseModel):
+    status: str
+    score_id: str
+
 
