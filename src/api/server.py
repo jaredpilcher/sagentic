@@ -58,7 +58,8 @@ def list_runs(
         "id": r.id, 
         "agent_id": r.agent_id, 
         "created_at": r.created_at,
-        "tags": json.loads(r.tags_json) if r.tags_json else []
+        "tags": json.loads(r.tags_json) if r.tags_json else [],
+        "cost": r.cost
     } for r in runs]
 
 

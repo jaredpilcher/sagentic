@@ -11,6 +11,26 @@ from ..engines.basic_stats import BasicStatsEngine
 # Register engines
 registry.register(BasicStatsEngine())
 
+# Simple cost model (per 1k tokens)
+COST_MODEL = {
+    "gpt-4": {"input": 0.03, "output": 0.06},
+    "gpt-3.5-turbo": {"input": 0.0015, "output": 0.002},
+    "claude-3-opus": {"input": 0.015, "output": 0.075},
+}
+
+def calculate_cost(model: str, usage: dict) -> float:
+    if not model or not usage:
+        return 0.0
+    
+    pricing = COST_MODEL.get(model)
+    if not pricing:
+        return 0.0
+        
+    input_cost = (usage.get("prompt_tokens", 0) / 1000) * pricing["input"]
+    output_cost = (usage.get("completion_tokens", 0) / 1000) * pricing["output"]
+    
+    return input_cost + output_cost
+
 class TelemetryService:
     def __init__(self, db: Session):
         self.db = db
@@ -104,6 +124,14 @@ class TelemetryService:
             self.db.commit()
 
         # 2. Create Span
+        cost = 0.0
+        if span.usage:
+            # Try to infer model from attributes or name
+            model = span.attributes.get("model") or span.attributes.get("llm.model_name")
+            cost = calculate_cost(model, span.usage)
+            if span.cost: # Allow override
+                cost = span.cost
+
         db_span = SpanDB(
             span_id=span.span_id,
             trace_id=span.trace_id,
@@ -116,15 +144,23 @@ class TelemetryService:
             input_json=json.dumps(span.input) if span.input else None,
             output_json=json.dumps(span.output) if span.output else None,
             status_code=span.status_code.value,
-            events_json=json.dumps(span.events)
+            events_json=json.dumps(span.events),
+            usage_json=json.dumps(span.usage) if span.usage else None,
+            cost=cost
         )
         self.db.add(db_span)
+        
+        # Update Run cost
+        if cost > 0:
+            run.cost = (run.cost or 0.0) + cost
+            
         self.db.commit()
         
         return {
             "status": "logged",
             "span_id": span.span_id,
-            "trace_id": span.trace_id
+            "trace_id": span.trace_id,
+            "cost": cost
         }
 
     async def ingest_score(self, score):
@@ -279,9 +315,21 @@ class TelemetryService:
             id=run_id, 
             agent_id="playground-user", 
             created_at=start_time,
-            tags_json=json.dumps(["playground", model])
+            tags_json=json.dumps(["playground", model]),
+            cost=0.0 # Will be updated by span ingestion if we used that, but here we do manual steps
         )
         self.db.add(run)
+        
+        # Calculate usage/cost for playground
+        prompt_tokens = len(prompt.split()) * 1.3 # Rough estimate
+        completion_tokens = len(response_text.split()) * 1.3
+        usage = {
+            "prompt_tokens": int(prompt_tokens),
+            "completion_tokens": int(completion_tokens),
+            "total_tokens": int(prompt_tokens + completion_tokens)
+        }
+        cost = calculate_cost(model, usage)
+        run.cost = cost
         
         # Create Step (User)
         step_user = Step(
@@ -313,5 +361,7 @@ class TelemetryService:
             "response": response_text,
             "model": model,
             "latency_ms": latency_ms,
-            "run_id": run_id
+            "run_id": run_id,
+            "usage": usage,
+            "cost": cost
         }

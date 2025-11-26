@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
-import { Activity, ArrowRight, Bot, Clock, Search } from 'lucide-react'
+import { Activity, ArrowRight, Bot, Clock, Search, DollarSign, Zap } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
@@ -11,7 +11,9 @@ interface Run {
     id: string
     agent_id: string
     created_at: string
+    created_at: string
     tags: string[]
+    cost?: number
 }
 
 export default function Dashboard() {
@@ -43,10 +45,20 @@ export default function Dashboard() {
             </header>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
                 <StatCard title="Total Runs" value={runs.length} icon={Activity} />
                 <StatCard title="Active Agents" value={new Set(runs.map(r => r.agent_id)).size} icon={Bot} />
                 <StatCard title="Avg Latency" value="240ms" icon={Clock} />
+                <StatCard
+                    title="Total Cost"
+                    value={`$${runs.reduce((acc, r) => acc + (r.cost || 0), 0).toFixed(4)}`}
+                    icon={DollarSign}
+                />
+                <StatCard
+                    title="Est. Tokens"
+                    value={(runs.reduce((acc, r) => acc + (r.cost || 0), 0) * 100000).toFixed(0)}
+                    icon={Zap}
+                />
             </div>
 
             {/* Charts */}

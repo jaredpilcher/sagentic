@@ -12,6 +12,7 @@ class Run(Base):
     agent_id = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     tags_json = Column(Text, nullable=True)
+    cost = Column(Float, nullable=True)
     
     steps = relationship("Step", back_populates="run")
     spans = relationship("SpanDB", back_populates="run")
@@ -62,6 +63,8 @@ class SpanDB(Base):
     output_json = Column(Text, nullable=True)
     status_code = Column(String, default="OK")
     events_json = Column(Text, nullable=True)
+    usage_json = Column(Text, nullable=True)
+    cost = Column(Float, nullable=True)
 
     run = relationship("Run", back_populates="spans")
 

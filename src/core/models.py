@@ -39,6 +39,8 @@ class Span(BaseModel):
     output: Optional[Dict[str, Any]] = None
     status_code: SpanStatus = SpanStatus.OK
     events: List[Dict[str, Any]] = Field(default_factory=list)
+    usage: Optional[Dict[str, int]] = None # prompt_tokens, completion_tokens, total_tokens
+    cost: Optional[float] = None
 
 class Score(BaseModel):
     score_id: str
