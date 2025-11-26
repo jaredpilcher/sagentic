@@ -16,6 +16,7 @@ class Run(Base):
     
     steps = relationship("Step", back_populates="run")
     spans = relationship("SpanDB", back_populates="run")
+    feedback = relationship("FeedbackDB", back_populates="run")
     scores = relationship("ScoreDB", back_populates="run")
 
 class Step(Base):
@@ -89,6 +90,7 @@ class PromptTemplateDB(Base):
     version = Column(Integer, nullable=False)
     template = Column(Text, nullable=False)
     input_variables_json = Column(Text, nullable=True)
+    label = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class DatasetDB(Base):
@@ -105,12 +107,23 @@ class DatasetItemDB(Base):
     __tablename__ = 'dataset_items'
 
     id = Column(String, primary_key=True)
-    dataset_id = Column(String, ForeignKey('datasets.id'), nullable=False)
+    dataset_id = Column(String, ForeignKey("datasets.id"))
     input = Column(Text, nullable=False)
     expected_output = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     dataset = relationship("DatasetDB", back_populates="items")
+
+class FeedbackDB(Base):
+    __tablename__ = "feedback"
+
+    id = Column(String, primary_key=True)
+    run_id = Column(String, ForeignKey("runs.id"))
+    value = Column(Float, nullable=False)
+    comment = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    run = relationship("Run", back_populates="feedback")
 
 class EvaluationResultDB(Base):
     __tablename__ = 'evaluation_results'

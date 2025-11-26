@@ -87,6 +87,7 @@ class PromptTemplate(BaseModel):
     version: int
     template: str
     input_variables: List[str] = Field(default_factory=list)
+    label: Optional[str] = None # e.g. "production", "staging"
     created_at: datetime
 
 class DatasetItem(BaseModel):
@@ -117,4 +118,11 @@ class Comparison(BaseModel):
     base_run_id: str
     candidate_run_id: str
     metrics: Dict[str, Any]
+    created_at: datetime
+
+class Feedback(BaseModel):
+    id: str
+    run_id: str
+    value: float # 1.0 for thumbs up, 0.0 for thumbs down (or -1.0)
+    comment: Optional[str] = None
     created_at: datetime

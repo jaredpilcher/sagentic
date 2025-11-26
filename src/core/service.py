@@ -199,6 +199,20 @@ class TelemetryService:
         from ..db.database import ScoreDB
         return self.db.query(ScoreDB).filter(ScoreDB.trace_id == run_id).order_by(ScoreDB.timestamp.desc()).all()
 
+    async def ingest_feedback(self, feedback):
+        from ..db.database import FeedbackDB
+        
+        db_feedback = FeedbackDB(
+            id=str(uuid.uuid4()),
+            run_id=feedback.run_id,
+            value=feedback.value,
+            comment=feedback.comment,
+            created_at=datetime.utcnow()
+        )
+        self.db.add(db_feedback)
+        self.db.commit()
+        return db_feedback
+
 
 
 
@@ -246,6 +260,26 @@ class TelemetryService:
         
         return prompts
 
+    def promote_prompt(self, name: str, version: int, label: str):
+        from ..db.database import PromptTemplateDB
+        
+        # 1. Clear label from other versions of this prompt
+        self.db.query(PromptTemplateDB).filter(
+            PromptTemplateDB.name == name,
+            PromptTemplateDB.label == label
+        ).update({"label": None})
+        
+        # 2. Set label on target version
+        target = self.db.query(PromptTemplateDB).filter(
+            PromptTemplateDB.name == name,
+            PromptTemplateDB.version == version
+        ).first()
+        
+        if target:
+            target.label = label
+            self.db.commit()
+            return True
+        return False
 
     def get_prompt_history(self, name: str):
         from ..db.database import PromptTemplateDB

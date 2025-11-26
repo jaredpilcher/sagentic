@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
 import { format } from 'date-fns'
-import { Bot, User, Terminal, Cpu, Layers, Activity, ThumbsUp, ThumbsDown, MessageSquare } from 'lucide-react'
+import { Bot, User, Terminal, Cpu, Layers, Activity, ThumbsUp, ThumbsDown, MessageSquare, Tag } from 'lucide-react'
 import { cn } from '../lib/utils'
 import TraceView from '../components/TraceView'
 
@@ -40,9 +40,15 @@ interface Score {
     score_id: string
     trace_id: string
     name: string
-    value: number // Changed from float to number for TypeScript
+    value: number
     comment?: string
     timestamp: string
+}
+
+interface Run {
+    run_id: string
+    agent_id: string
+    tags: string[]
 }
 
 export default function RunDetail() {
@@ -55,11 +61,19 @@ export default function RunDetail() {
 
     const [spans, setSpans] = useState<Span[]>([])
     const [scores, setScores] = useState<Score[]>([])
+    const [run, setRun] = useState<Run | null>(null)
+    const [feedback, setFeedback] = useState<number | null>(null)
 
     const fetchScores = () => {
         axios.get(`http://localhost:3000/api/runs/${runId}/scores`)
             .then(res => setScores(res.data))
             .catch(err => console.log("Error fetching scores", err))
+    }
+
+    const fetchRun = () => {
+        axios.get(`http://localhost:3000/api/runs/${runId}`)
+            .then(res => setRun(res.data))
+            .catch(err => console.log("Error fetching run details", err))
     }
 
     useEffect(() => {
@@ -74,7 +88,21 @@ export default function RunDetail() {
             .catch(() => console.log("No spans found or error fetching spans"))
 
         fetchScores()
+        fetchRun()
     }, [runId])
+
+    const handleFeedback = (value: number) => {
+        if (!runId) return
+        axios.post('http://localhost:3000/api/feedback', {
+            id: crypto.randomUUID(),
+            run_id: runId,
+            value: value,
+            comment: null,
+            created_at: new Date().toISOString()
+        })
+            .then(() => setFeedback(value))
+            .catch(err => console.error(err))
+    }
 
     useEffect(() => {
         if (selectedStepId && activeTab === 'timeline') {
@@ -82,19 +110,6 @@ export default function RunDetail() {
                 .then(res => setStepDetail(res.data))
         }
     }, [selectedStepId, activeTab])
-
-    const submitScore = (name: string, value: number) => {
-        const scoreId = crypto.randomUUID()
-        axios.post('http://localhost:3000/api/scores', {
-            score_id: scoreId,
-            trace_id: runId,
-            name: name,
-            value: value,
-            timestamp: new Date().toISOString()
-        }).then(() => {
-            fetchScores()
-        })
-    }
 
     return (
         <div className="h-[calc(100vh-8rem)] flex flex-col gap-4">
@@ -143,15 +158,15 @@ export default function RunDetail() {
                             <h3 className="text-lg font-semibold mb-4">Add Evaluation</h3>
                             <div className="flex gap-4">
                                 <button
-                                    onClick={() => submitScore('user_feedback', 1.0)}
-                                    className="flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-500 border border-green-500/20 rounded-md hover:bg-green-500/20 transition-colors"
+                                    onClick={() => handleFeedback(1.0)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${feedback === 1.0 ? 'bg-green-500/20 text-green-500 border border-green-500/30' : 'bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500/20'}`}
                                 >
                                     <ThumbsUp className="w-4 h-4" />
                                     Thumbs Up
                                 </button>
                                 <button
-                                    onClick={() => submitScore('user_feedback', 0.0)}
-                                    className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-500 border border-red-500/20 rounded-md hover:bg-red-500/20 transition-colors"
+                                    onClick={() => handleFeedback(0.0)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${feedback === 0.0 ? 'bg-red-500/20 text-red-500 border border-red-500/30' : 'bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20'}`}
                                 >
                                     <ThumbsDown className="w-4 h-4" />
                                     Thumbs Down
@@ -190,7 +205,19 @@ export default function RunDetail() {
                     <div className="w-1/3 bg-card border border-border rounded-xl overflow-hidden flex flex-col">
                         <div className="p-4 border-b border-border bg-muted/30">
                             <h3 className="font-semibold">Run Timeline</h3>
-                            <p className="text-xs text-muted-foreground font-mono mt-1">{runId}</p>
+                            <div className="flex items-center justify-between mt-1">
+                                <p className="text-xs text-muted-foreground font-mono">{runId}</p>
+                                {run && (
+                                    <div className="flex gap-1">
+                                        {run.tags.map(tag => (
+                                            <span key={tag} className="px-1.5 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-medium flex items-center gap-1">
+                                                <Tag className="w-3 h-3" />
+                                                {tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <div className="flex-1 overflow-y-auto p-2 space-y-2">
                             {steps.map((step) => (
@@ -360,6 +387,3 @@ function Section({ title, icon: Icon, children }: { title: string; icon: any; ch
         </div>
     )
 }
-
-
-

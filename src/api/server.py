@@ -44,6 +44,13 @@ async def ingest_score(score: Score, db: Session = Depends(get_db)):
     service = TelemetryService(db)
     return await service.ingest_score(score)
 
+from ..core.models import Feedback
+@app.post("/api/feedback")
+async def ingest_feedback(feedback: Feedback, db: Session = Depends(get_db)):
+    service = TelemetryService(db)
+    await service.ingest_feedback(feedback)
+    return {"status": "logged"}
+
 @app.get("/api/runs")
 def list_runs(
     limit: int = 100, 
@@ -182,7 +189,7 @@ def list_prompts(db: Session = Depends(get_db)):
         for p in prompts
     ]
 
-@app.get("/api/prompts/{name}")
+@app.get("/api/prompts/{name}/history")
 def get_prompt_history(name: str, db: Session = Depends(get_db)):
     service = TelemetryService(db)
     prompts = service.get_prompt_history(name)
@@ -193,10 +200,21 @@ def get_prompt_history(name: str, db: Session = Depends(get_db)):
             "version": p.version,
             "template": p.template,
             "input_variables": json.loads(p.input_variables_json) if p.input_variables_json else [],
+            "label": p.label,
             "created_at": p.created_at
         }
         for p in prompts
     ]
+
+@app.post("/api/prompts/{name}/promote")
+def promote_prompt(name: str, payload: dict, db: Session = Depends(get_db)):
+    service = TelemetryService(db)
+    version = payload.get("version")
+    label = payload.get("label", "production")
+    success = service.promote_prompt(name, version, label)
+    if not success:
+        raise HTTPException(status_code=404, detail="Prompt version not found")
+    return {"status": "promoted", "name": name, "version": version, "label": label}
 
 @app.post("/api/datasets", response_model=Dataset)
 def create_dataset(dataset: Dataset, db: Session = Depends(get_db)):

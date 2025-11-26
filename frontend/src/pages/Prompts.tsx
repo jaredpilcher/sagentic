@@ -11,6 +11,7 @@ interface Prompt {
     template: string
     input_variables: string[]
     created_at: string
+    label?: string
 }
 
 export default function Prompts() {
@@ -22,6 +23,10 @@ export default function Prompts() {
     const [newName, setNewName] = useState('')
     const [newTemplate, setNewTemplate] = useState('')
 
+    const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null)
+    const [history, setHistory] = useState<Prompt[]>([])
+    const [showHistory, setShowHistory] = useState(false)
+
     useEffect(() => {
         fetchPrompts()
     }, [])
@@ -32,6 +37,25 @@ export default function Prompts() {
             .then(res => setPrompts(res.data))
             .catch(err => console.error(err))
             .finally(() => setLoading(false))
+    }
+
+    const fetchHistory = (name: string) => {
+        axios.get(`http://localhost:3000/api/prompts/${name}/history`)
+            .then(res => {
+                setHistory(res.data)
+                setShowHistory(true)
+            })
+            .catch(err => console.error(err))
+    }
+
+    const handlePromote = (name: string, version: number) => {
+        axios.post(`http://localhost:3000/api/prompts/${name}/promote`, { version, label: 'production' })
+            .then(() => {
+                fetchHistory(name) // Refresh history
+                // Refresh main list
+                axios.get('http://localhost:3000/api/prompts').then(res => setPrompts(res.data))
+            })
+            .catch(err => console.error(err))
     }
 
     const handleCreate = async (e: React.FormEvent) => {
@@ -139,13 +163,29 @@ export default function Prompts() {
                                         <Terminal className="w-4 h-4 text-primary" />
                                         {prompt.name}
                                     </h3>
-                                    <div className="text-xs text-muted-foreground mt-1">
-                                        Updated {formatDistanceToNow(new Date(prompt.created_at), { addSuffix: true })}
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <span className="text-xs bg-secondary text-secondary-foreground px-2 py-1 rounded-full">
+                                            v{prompt.version}
+                                        </span>
+                                        {prompt.label && (
+                                            <span className="text-xs bg-green-500/10 text-green-500 px-2 py-1 rounded-full border border-green-500/20">
+                                                {prompt.label}
+                                            </span>
+                                        )}
+                                        <span className="text-xs text-muted-foreground">
+                                            {new Date(prompt.created_at).toLocaleDateString()}
+                                        </span>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                fetchHistory(prompt.name)
+                                            }}
+                                            className="ml-auto text-xs text-primary hover:underline"
+                                        >
+                                            History
+                                        </button>
                                     </div>
                                 </div>
-                                <span className="px-2 py-1 bg-accent rounded text-xs font-mono font-medium">
-                                    v{prompt.version}
-                                </span>
                             </div>
 
                             <div className="bg-muted/50 rounded-lg p-3 font-mono text-xs text-muted-foreground mb-4 line-clamp-3">
@@ -161,6 +201,47 @@ export default function Prompts() {
                             </div>
                         </motion.div>
                     ))
+                )}
+                {/* History Modal/Panel */}
+                {showHistory && (
+                    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowHistory(false)}>
+                        <div className="bg-card border border-border rounded-xl shadow-lg w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+                            <div className="p-4 border-b border-border flex justify-between items-center">
+                                <h3 className="font-semibold">Version History</h3>
+                                <button onClick={() => setShowHistory(false)} className="text-muted-foreground hover:text-foreground">✕</button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                                {history.map(v => (
+                                    <div key={v.id} className="border border-border rounded-lg p-4 space-y-2">
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium">v{v.version}</span>
+                                                {v.label && (
+                                                    <span className="text-xs bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full border border-green-500/20">
+                                                        {v.label}
+                                                    </span>
+                                                )}
+                                                <span className="text-xs text-muted-foreground">
+                                                    {new Date(v.created_at).toLocaleString()}
+                                                </span>
+                                            </div>
+                                            {!v.label && (
+                                                <button
+                                                    onClick={() => handlePromote(v.name, v.version)}
+                                                    className="text-xs bg-primary/10 text-primary px-2 py-1 rounded hover:bg-primary/20"
+                                                >
+                                                    Promote
+                                                </button>
+                                            )}
+                                        </div>
+                                        <pre className="bg-muted p-2 rounded text-xs overflow-x-auto whitespace-pre-wrap font-mono">
+                                            {v.template}
+                                        </pre>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
