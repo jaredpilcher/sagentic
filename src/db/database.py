@@ -88,6 +88,27 @@ class PromptTemplateDB(Base):
     input_variables_json = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+class DatasetDB(Base):
+    __tablename__ = 'datasets'
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    items = relationship("DatasetItemDB", back_populates="dataset")
+
+class DatasetItemDB(Base):
+    __tablename__ = 'dataset_items'
+
+    id = Column(String, primary_key=True)
+    dataset_id = Column(String, ForeignKey('datasets.id'), nullable=False)
+    input = Column(Text, nullable=False)
+    expected_output = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    dataset = relationship("DatasetDB", back_populates="items")
+
 # Database setup
 DATABASE_URL = "sqlite:///./telemetry.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})

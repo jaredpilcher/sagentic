@@ -196,6 +196,51 @@ class TelemetryService:
         
         return prompts
 
+
     def get_prompt_history(self, name: str):
         from ..db.database import PromptTemplateDB
         return self.db.query(PromptTemplateDB).filter(PromptTemplateDB.name == name).order_by(PromptTemplateDB.version.desc()).all()
+
+    def create_dataset(self, dataset):
+        from ..db.database import DatasetDB
+        db_dataset = DatasetDB(
+            id=str(uuid.uuid4()),
+            name=dataset.name,
+            description=dataset.description,
+            created_at=datetime.utcnow()
+        )
+        self.db.add(db_dataset)
+        self.db.commit()
+        return db_dataset
+
+    def get_datasets(self):
+        from ..db.database import DatasetDB
+        return self.db.query(DatasetDB).order_by(DatasetDB.created_at.desc()).all()
+
+    def get_dataset(self, dataset_id: str):
+        from ..db.database import DatasetDB
+        return self.db.query(DatasetDB).filter(DatasetDB.id == dataset_id).first()
+
+    def add_dataset_item(self, item):
+        from ..db.database import DatasetItemDB
+        db_item = DatasetItemDB(
+            id=str(uuid.uuid4()),
+            dataset_id=item.dataset_id,
+            input=item.input,
+            expected_output=item.expected_output,
+            created_at=datetime.utcnow()
+        )
+        self.db.add(db_item)
+        self.db.commit()
+        return db_item
+
+    async def run_playground_prompt(self, prompt: str, model: str):
+        # Mock LLM response
+        import asyncio
+        await asyncio.sleep(1) # Simulate latency
+        return {
+            "response": f"Mock response to: {prompt}",
+            "model": model,
+            "latency_ms": 1000,
+            "tokens": len(prompt.split()) + 10
+        }

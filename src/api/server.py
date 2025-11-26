@@ -3,7 +3,8 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
-from ..core.models import AgentStep, IngestResponse, Span, SpanIngestResponse, Score, ScoreIngestResponse, PromptTemplate
+from ..core.models import AgentStep, IngestResponse, Span, SpanIngestResponse, Score, ScoreIngestResponse, PromptTemplate, Dataset, DatasetItem
+from pydantic import BaseModel
 from ..core.service import TelemetryService
 from ..db.database import get_db, init_db, Step as DBStep
 import json
@@ -183,3 +184,41 @@ def get_prompt_history(name: str, db: Session = Depends(get_db)):
         }
         for p in prompts
     ]
+
+@app.post("/api/datasets", response_model=Dataset)
+def create_dataset(dataset: Dataset, db: Session = Depends(get_db)):
+    service = TelemetryService(db)
+    return service.create_dataset(dataset)
+
+@app.get("/api/datasets", response_model=List[Dataset])
+def list_datasets(db: Session = Depends(get_db)):
+    service = TelemetryService(db)
+    datasets = service.get_datasets()
+    return datasets # SQLAlchemy models, Pydantic will adapt
+
+@app.get("/api/datasets/{dataset_id}", response_model=Dataset)
+def get_dataset(dataset_id: str, db: Session = Depends(get_db)):
+    service = TelemetryService(db)
+    dataset = service.get_dataset(dataset_id)
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    return dataset
+
+@app.post("/api/datasets/{dataset_id}/items", response_model=DatasetItem)
+def add_dataset_item(dataset_id: str, item: DatasetItem, db: Session = Depends(get_db)):
+    service = TelemetryService(db)
+    # Ensure dataset exists
+    if not service.get_dataset(dataset_id):
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    
+    item.dataset_id = dataset_id # Override from URL
+    return service.add_dataset_item(item)
+
+class PlaygroundRequest(BaseModel):
+    prompt: str
+    model: str
+
+@app.post("/api/playground/run")
+async def run_playground(req: PlaygroundRequest, db: Session = Depends(get_db)):
+    service = TelemetryService(db)
+    return await service.run_playground_prompt(req.prompt, req.model)

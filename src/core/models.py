@@ -1,5 +1,5 @@
 
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any, Union, Union
 from pydantic import BaseModel, Field
 from datetime import datetime
 
@@ -86,5 +86,19 @@ class PromptTemplate(BaseModel):
     template: str
     input_variables: List[str] = Field(default_factory=list)
     created_at: datetime
+
+class DatasetItem(BaseModel):
+    id: str
+    dataset_id: str
+    input: str
+    expected_output: Optional[str] = None
+    created_at: datetime
+
+class Dataset(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    created_at: datetime
+    items: List[DatasetItem] = []
 
 
