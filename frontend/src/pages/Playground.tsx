@@ -1,26 +1,33 @@
 import { useState } from 'react'
 import axios from 'axios'
-import { Play, Zap } from 'lucide-react'
+import { Play, Zap, ExternalLink } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { Link } from 'react-router-dom'
 
 export default function Playground() {
     const [prompt, setPrompt] = useState('')
     const [model, setModel] = useState('gpt-4')
-    const [response, setResponse] = useState<any>(null)
+    const [response, setResponse] = useState('')
+    const [lastRunId, setLastRunId] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
 
     const handleRun = async () => {
         if (!prompt) return
         setLoading(true)
-        setResponse(null)
+        setResponse("") // Clear previous response
+        setLastRunId(null) // Clear previous run ID
         try {
             const res = await axios.post('http://localhost:3000/api/playground/run', {
                 prompt,
                 model
             })
-            setResponse(res.data)
+            setResponse(res.data.response)
+            if (res.data.run_id) {
+                setLastRunId(res.data.run_id)
+            }
         } catch (err) {
             console.error(err)
+            setResponse("Error running prompt")
         } finally {
             setLoading(false)
         }
@@ -68,7 +75,17 @@ export default function Playground() {
 
                 {/* Output Area */}
                 <div className="flex-1 flex flex-col gap-2">
-                    <label className="text-sm font-medium text-muted-foreground">Response</label>
+                    <div className="flex justify-between items-center mb-2">
+                        <label className="text-sm font-medium text-muted-foreground">Response</label>
+                        {lastRunId && (
+                            <Link
+                                to={`/runs/${lastRunId}`}
+                                className="flex items-center gap-1 text-xs text-primary hover:underline"
+                            >
+                                View Trace <ExternalLink className="w-3 h-3" />
+                            </Link>
+                        )}
+                    </div>
                     <div className="flex-1 bg-card border border-border rounded-xl p-4 font-mono text-sm overflow-y-auto relative">
                         {loading ? (
                             <div className="absolute inset-0 flex items-center justify-center bg-card/50 backdrop-blur-sm">

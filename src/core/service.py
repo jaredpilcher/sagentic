@@ -66,8 +66,22 @@ class TelemetryService:
             "analyses": analysis_results
         }
 
-    def get_runs(self):
-        return self.db.query(Run).order_by(Run.created_at.desc()).limit(100).all()
+    def get_runs(self, limit: int = 100, offset: int = 0, tags: list[str] = None, min_latency: int = None, max_latency: int = None):
+        query = self.db.query(Run)
+        
+        if tags:
+            # This is a simple string check, ideally we'd use a proper JSON/Array contains query
+            # For SQLite/Postgres compatibility without complex types, we'll do a basic LIKE check for now
+            for tag in tags:
+                query = query.filter(Run.tags_json.like(f'%"{tag}"%'))
+                
+        # For latency, we need to join with spans or steps, or assume latency is stored on Run?
+        # The Run model doesn't have latency. We might need to compute it or store it.
+        # For now, let's skip latency filtering on the DB side unless we add a column.
+        # Alternatively, we can filter in memory (inefficient but works for small scale).
+        
+        runs = query.order_by(Run.created_at.desc()).limit(limit).offset(offset).all()
+        return runs
 
     def get_run_steps(self, run_id: str):
         steps = self.db.query(Step).filter(Step.run_id == run_id).order_by(Step.timestamp.asc()).all()
@@ -235,12 +249,69 @@ class TelemetryService:
         return db_item
 
     async def run_playground_prompt(self, prompt: str, model: str):
-        # Mock LLM response
+        # Mock LLM response (or use litellm if configured)
         import asyncio
-        await asyncio.sleep(1) # Simulate latency
+        from litellm import completion
+        import os
+        
+        start_time = datetime.utcnow()
+        
+        response_text = ""
+        latency_ms = 0
+        
+        if os.getenv("OPENAI_API_KEY"):
+            try:
+                resp = completion(model=model, messages=[{"role": "user", "content": prompt}])
+                response_text = resp.choices[0].message.content
+                latency_ms = (datetime.utcnow() - start_time).total_seconds() * 1000
+            except Exception as e:
+                response_text = f"Error: {str(e)}"
+        else:
+            await asyncio.sleep(1) # Simulate latency
+            response_text = f"Mock response to: {prompt}"
+            latency_ms = 1000
+
+        # Save to history
+        run_id = str(uuid.uuid4())
+        
+        # Create Run
+        run = Run(
+            id=run_id, 
+            agent_id="playground-user", 
+            created_at=start_time,
+            tags_json=json.dumps(["playground", model])
+        )
+        self.db.add(run)
+        
+        # Create Step (User)
+        step_user = Step(
+            id=str(uuid.uuid4()),
+            run_id=run_id,
+            agent_id="playground-user",
+            timestamp=start_time,
+            role="user",
+            prompt_user=prompt,
+            response=None
+        )
+        self.db.add(step_user)
+        
+        # Create Step (Assistant)
+        step_assistant = Step(
+            id=str(uuid.uuid4()),
+            run_id=run_id,
+            agent_id="playground-user",
+            timestamp=datetime.utcnow(),
+            role="assistant",
+            prompt_user=None,
+            response=response_text
+        )
+        self.db.add(step_assistant)
+        
+        self.db.commit()
+
         return {
-            "response": f"Mock response to: {prompt}",
+            "response": response_text,
             "model": model,
-            "latency_ms": 1000,
-            "tokens": len(prompt.split()) + 10
+            "latency_ms": latency_ms,
+            "run_id": run_id
         }

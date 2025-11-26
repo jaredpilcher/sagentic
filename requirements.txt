@@ -7,3 +7,4 @@ httpx
 gunicorn
 psycopg2-binary
 structlog
+litellm

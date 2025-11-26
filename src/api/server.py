@@ -45,9 +45,15 @@ async def ingest_score(score: Score, db: Session = Depends(get_db)):
     return await service.ingest_score(score)
 
 @app.get("/api/runs")
-def list_runs(db: Session = Depends(get_db)):
+def list_runs(
+    limit: int = 100, 
+    offset: int = 0, 
+    tags: str = None, 
+    db: Session = Depends(get_db)
+):
     service = TelemetryService(db)
-    runs = service.get_runs()
+    tag_list = tags.split(",") if tags else None
+    runs = service.get_runs(limit=limit, offset=offset, tags=tag_list)
     return [{
         "id": r.id, 
         "agent_id": r.agent_id, 

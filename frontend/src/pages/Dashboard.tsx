@@ -17,13 +17,23 @@ interface Run {
 export default function Dashboard() {
     const [runs, setRuns] = useState<Run[]>([])
     const [loading, setLoading] = useState(true)
+    const [searchTags, setSearchTags] = useState('')
+    const [debouncedTags, setDebouncedTags] = useState('')
 
     useEffect(() => {
-        axios.get('http://localhost:3000/api/runs')
+        const timer = setTimeout(() => setDebouncedTags(searchTags), 500)
+        return () => clearTimeout(timer)
+    }, [searchTags])
+
+    useEffect(() => {
+        setLoading(true)
+        axios.get('http://localhost:3000/api/runs', {
+            params: { tags: debouncedTags || undefined }
+        })
             .then(res => setRuns(res.data))
             .catch(err => console.error(err))
             .finally(() => setLoading(false))
-    }, [])
+    }, [debouncedTags])
 
     return (
         <div className="space-y-8">
@@ -83,13 +93,17 @@ export default function Dashboard() {
             <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                 <div className="p-6 border-b border-border flex justify-between items-center">
                     <h3 className="font-semibold text-lg">Recent Runs</h3>
-                    <div className="relative">
-                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                            type="text"
-                            placeholder="Search runs..."
-                            className="bg-accent/50 border-none rounded-full pl-9 pr-4 py-1.5 text-sm focus:ring-2 focus:ring-primary/50 outline-none transition-all"
-                        />
+                    <div className="relative flex items-center gap-2">
+                        <div className="relative">
+                            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                                type="text"
+                                placeholder="Filter by tags..."
+                                value={searchTags}
+                                onChange={(e) => setSearchTags(e.target.value)}
+                                className="bg-accent/50 border-none rounded-full pl-9 pr-4 py-1.5 text-sm focus:ring-2 focus:ring-primary/50 outline-none transition-all w-64"
+                            />
+                        </div>
                     </div>
                 </div>
 
