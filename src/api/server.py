@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
-from ..core.models import AgentStep, IngestResponse
+from ..core.models import AgentStep, IngestResponse, Span, SpanIngestResponse
 from ..core.service import TelemetryService
 from ..db.database import get_db, init_db, Step as DBStep
 import json
@@ -27,6 +27,11 @@ async def ingest_step(step: AgentStep, db: Session = Depends(get_db)):
     service = TelemetryService(db)
     return await service.ingest_step(step)
 
+@app.post("/api/spans", response_model=SpanIngestResponse)
+async def ingest_span(span: Span, db: Session = Depends(get_db)):
+    service = TelemetryService(db)
+    return await service.ingest_span(span)
+
 @app.get("/api/runs")
 def list_runs(db: Session = Depends(get_db)):
     service = TelemetryService(db)
@@ -38,6 +43,26 @@ def list_run_steps(run_id: str, db: Session = Depends(get_db)):
     service = TelemetryService(db)
     steps = service.get_run_steps(run_id)
     return [{"id": s.id, "timestamp": s.timestamp, "role": s.role} for s in steps]
+
+@app.get("/api/runs/{run_id}/spans")
+def list_run_spans(run_id: str, db: Session = Depends(get_db)):
+    service = TelemetryService(db)
+    spans = service.get_run_spans(run_id)
+    return [
+        {
+            "span_id": s.span_id,
+            "trace_id": s.trace_id,
+            "parent_id": s.parent_id,
+            "name": s.name,
+            "start_time": s.start_time,
+            "end_time": s.end_time,
+            "span_kind": s.span_kind,
+            "attributes": json.loads(s.attributes_json) if s.attributes_json else {},
+            "status_code": s.status_code
+        }
+        for s in spans
+    ]
+
 
 @app.get("/api/steps/{step_id}")
 def get_step_details(step_id: str, db: Session = Depends(get_db)):
@@ -72,3 +97,9 @@ def get_step_details(step_id: str, db: Session = Depends(get_db)):
         "metadata": json.loads(step.metadata_json) if step.metadata_json else {},
         "analyses": analyses
     }
+
+@app.post("/api/spans", response_model=IngestResponse) # Should be SpanIngestResponse but reusing for simplicity or need to import
+async def ingest_span(span: AgentStep, db: Session = Depends(get_db)): # Type hint wrong, need Span
+    # Let's fix imports first
+    pass
+

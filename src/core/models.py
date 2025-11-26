@@ -14,6 +14,32 @@ class Prompt(BaseModel):
     assistant_context: Optional[str] = None
     tools_trace: List[ToolTrace] = Field(default_factory=list)
 
+from enum import Enum
+
+class SpanKind(str, Enum):
+    AGENT = "AGENT"
+    LLM = "LLM"
+    TOOL = "TOOL"
+    CHAIN = "CHAIN"
+
+class SpanStatus(str, Enum):
+    OK = "OK"
+    ERROR = "ERROR"
+
+class Span(BaseModel):
+    span_id: str
+    trace_id: str
+    parent_id: Optional[str] = None
+    name: str
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    span_kind: SpanKind = SpanKind.CHAIN
+    attributes: Dict[str, Any] = Field(default_factory=dict)
+    input: Optional[Dict[str, Any]] = None
+    output: Optional[Dict[str, Any]] = None
+    status_code: SpanStatus = SpanStatus.OK
+    events: List[Dict[str, Any]] = Field(default_factory=list)
+
 class AgentStep(BaseModel):
     run_id: str
     step_id: str
@@ -33,3 +59,9 @@ class IngestResponse(BaseModel):
     status: str
     step_id: str
     analyses: List[AnalysisResult]
+
+class SpanIngestResponse(BaseModel):
+    status: str
+    span_id: str
+    trace_id: str
+

@@ -75,3 +75,46 @@ class TelemetryService:
 
     def get_step(self, step_id: str):
         return self.db.query(Step).filter(Step.id == step_id).first()
+
+    async def ingest_span(self, span):
+        from ..core.models import Span as SpanModel
+        from ..db.database import SpanDB
+
+        # 1. Ensure Run exists (Trace ID maps to Run ID)
+        run = self.db.query(Run).filter(Run.id == span.trace_id).first()
+        if not run:
+            # If trace doesn't exist, create a placeholder run
+            # In a real system we might want more info here
+            run = Run(id=span.trace_id, agent_id="unknown", created_at=datetime.utcnow())
+            self.db.add(run)
+            self.db.commit()
+
+        # 2. Create Span
+        db_span = SpanDB(
+            span_id=span.span_id,
+            trace_id=span.trace_id,
+            parent_id=span.parent_id,
+            name=span.name,
+            start_time=span.start_time,
+            end_time=span.end_time,
+            span_kind=span.span_kind.value,
+            attributes_json=json.dumps(span.attributes),
+            input_json=json.dumps(span.input) if span.input else None,
+            output_json=json.dumps(span.output) if span.output else None,
+            status_code=span.status_code.value,
+            events_json=json.dumps(span.events)
+        )
+        self.db.add(db_span)
+        self.db.commit()
+        
+        return {
+            "status": "logged",
+            "span_id": span.span_id,
+            "trace_id": span.trace_id
+        }
+
+    def get_run_spans(self, run_id: str):
+        from ..db.database import SpanDB
+        return self.db.query(SpanDB).filter(SpanDB.trace_id == run_id).order_by(SpanDB.start_time.asc()).all()
+
+

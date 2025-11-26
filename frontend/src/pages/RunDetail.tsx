@@ -1,10 +1,10 @@
-
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
 import { format } from 'date-fns'
-import { Bot, User, Terminal, Cpu } from 'lucide-react'
+import { Bot, User, Terminal, Cpu, Layers, Activity } from 'lucide-react'
 import { cn } from '../lib/utils'
+import TraceView from '../components/TraceView'
 
 interface Step {
     id: string
@@ -24,11 +24,27 @@ interface StepDetail extends Step {
     analyses?: any[]
 }
 
+interface Span {
+    span_id: string
+    trace_id: string
+    parent_id: string | null
+    name: string
+    start_time: string
+    end_time: string | null
+    span_kind: 'AGENT' | 'LLM' | 'TOOL' | 'CHAIN'
+    attributes: any
+    status_code: 'OK' | 'ERROR'
+}
+
 export default function RunDetail() {
     const { runId } = useParams()
+    const [activeTab, setActiveTab] = useState<'timeline' | 'trace'>('timeline')
+
     const [steps, setSteps] = useState<Step[]>([])
     const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
     const [stepDetail, setStepDetail] = useState<StepDetail | null>(null)
+
+    const [spans, setSpans] = useState<Span[]>([])
 
     useEffect(() => {
         axios.get(`http://localhost:3000/api/runs/${runId}/steps`)
@@ -36,149 +52,218 @@ export default function RunDetail() {
                 setSteps(res.data)
                 if (res.data.length > 0) setSelectedStepId(res.data[0].id)
             })
+
+        axios.get(`http://localhost:3000/api/runs/${runId}/spans`)
+            .then(res => setSpans(res.data))
+            .catch(err => console.log("No spans found or error fetching spans"))
     }, [runId])
 
     useEffect(() => {
-        if (selectedStepId) {
+        if (selectedStepId && activeTab === 'timeline') {
             axios.get(`http://localhost:3000/api/steps/${selectedStepId}`)
                 .then(res => setStepDetail(res.data))
         }
-    }, [selectedStepId])
+    }, [selectedStepId, activeTab])
 
     return (
-        <div className="h-[calc(100vh-8rem)] flex gap-6">
-            {/* Timeline Sidebar */}
-            <div className="w-1/3 bg-card border border-border rounded-xl overflow-hidden flex flex-col">
-                <div className="p-4 border-b border-border bg-muted/30">
-                    <h3 className="font-semibold">Run Timeline</h3>
-                    <p className="text-xs text-muted-foreground font-mono mt-1">{runId}</p>
-                </div>
-                <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                    {steps.map((step) => (
-                        <button
-                            key={step.id}
-                            onClick={() => setSelectedStepId(step.id)}
-                            className={cn(
-                                "w-full text-left p-3 rounded-lg text-sm transition-all border border-transparent",
-                                selectedStepId === step.id
-                                    ? "bg-primary/10 border-primary/20 shadow-sm"
-                                    : "hover:bg-accent/50"
-                            )}
-                        >
-                            <div className="flex items-center gap-3 mb-2">
-                                <Badge role={step.role} />
-                                <span className="text-xs text-muted-foreground ml-auto">
-                                    {format(new Date(step.timestamp), 'HH:mm:ss')}
-                                </span>
-                            </div>
-                            <div className="text-xs text-muted-foreground font-mono truncate">
-                                {step.id}
-                            </div>
-                        </button>
-                    ))}
-                </div>
+        <div className="h-[calc(100vh-8rem)] flex flex-col gap-4">
+            {/* Tab Switcher */}
+            <div className="flex gap-2 border-b border-border pb-2">
+                <button
+                    onClick={() => setActiveTab('timeline')}
+                    className={cn(
+                        "px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2",
+                        activeTab === 'timeline' ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent"
+                    )}
+                >
+                    <Activity className="w-4 h-4" />
+                    Timeline
+                </button>
+                <button
+                    onClick={() => setActiveTab('trace')}
+                    className={cn(
+                        "px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2",
+                        activeTab === 'trace' ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent"
+                    )}
+                >
+                    <Layers className="w-4 h-4" />
+                    Trace View
+                </button>
             </div>
 
-            {/* Detail View */}
-            <div className="flex-1 bg-card border border-border rounded-xl overflow-hidden flex flex-col">
-                {stepDetail ? (
-                    <div className="flex-1 overflow-y-auto">
-                        {/* Header */}
-                        <div className="p-6 border-b border-border bg-muted/10">
-                            <div className="flex items-center justify-between mb-4">
-                                <Badge role={stepDetail.role} size="lg" />
-                                <div className="text-sm text-muted-foreground font-mono">{stepDetail.timestamp}</div>
-                            </div>
-
-                            {/* Analysis Stats */}
-                            {stepDetail.analyses && stepDetail.analyses.length > 0 && (
-                                <div className="flex gap-4 mt-4">
-                                    {stepDetail.analyses.map((analysis, i) => (
-                                        <div key={i} className="bg-background/50 border border-border rounded px-3 py-2 text-xs">
-                                            <div className="font-semibold text-primary mb-1">{analysis.engine_id}</div>
-                                            <div className="text-muted-foreground">{analysis.summary}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+            {activeTab === 'trace' ? (
+                <div className="flex-1 bg-card border border-border rounded-xl p-6 overflow-y-auto">
+                    <TraceView spans={spans} />
+                </div>
+            ) : (
+                <div className="flex-1 flex gap-6 overflow-hidden">
+                    {/* Timeline Sidebar */}
+                    <div className="w-1/3 bg-card border border-border rounded-xl overflow-hidden flex flex-col">
+                        <div className="p-4 border-b border-border bg-muted/30">
+                            <h3 className="font-semibold">Run Timeline</h3>
+                            <p className="text-xs text-muted-foreground font-mono mt-1">{runId}</p>
                         </div>
+                        <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                            {steps.map((step) => (
+                                <button
+                                    key={step.id}
+                                    onClick={() => setSelectedStepId(step.id)}
+                                    className={cn(
+                                        "w-full text-left p-3 rounded-lg text-sm transition-all border border-transparent",
+                                        selectedStepId === step.id
+                                            ? "bg-primary/10 border-primary/20 shadow-sm"
+                                            : "hover:bg-accent/50"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <Badge role={step.role} />
+                                        <span className="text-xs text-muted-foreground ml-auto">
+                                            {format(new Date(step.timestamp), 'HH:mm:ss')}
+                                        </span>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground font-mono truncate">
+                                        {step.id}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
 
-                        {/* Content */}
-                        <div className="p-6 space-y-8">
-                            {/* Prompt Section */}
-                            <Section title="Prompt" icon={Terminal}>
-                                {stepDetail.prompt.system && (
-                                    <div className="mb-4">
-                                        <div className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">System</div>
-                                        <CodeBlock content={stepDetail.prompt.system} />
+                    {/* Detail View */}
+                    <div className="flex-1 bg-card border border-border rounded-xl overflow-hidden flex flex-col">
+                        {stepDetail ? (
+                            <div className="flex-1 overflow-y-auto">
+                                {/* Header */}
+                                <div className="p-6 border-b border-border bg-muted/10">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <Badge role={stepDetail.role} size="lg" />
+                                        <div className="text-sm text-muted-foreground font-mono">{stepDetail.timestamp}</div>
                                     </div>
-                                )}
-                                {stepDetail.prompt.user && (
-                                    <div>
-                                        <div className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">User</div>
-                                        <CodeBlock content={stepDetail.prompt.user} />
-                                    </div>
-                                )}
-                                {stepDetail.prompt.tools_trace && stepDetail.prompt.tools_trace.length > 0 && (
-                                    <div className="mt-4">
-                                        <div className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Tool Usage</div>
-                                        <div className="space-y-2">
-                                            {stepDetail.prompt.tools_trace.map((trace, i) => (
-                                                <div key={i} className="bg-accent/30 rounded p-3 border border-border/50">
-                                                    <div className="font-mono text-sm text-blue-400 mb-1">{trace.name}</div>
-                                                    <pre className="text-xs text-muted-foreground overflow-x-auto">{JSON.stringify(trace.args, null, 2)}</pre>
+
+                                    {/* Analysis Stats */}
+                                    {stepDetail.analyses && stepDetail.analyses.length > 0 && (
+                                        <div className="flex gap-4 mt-4">
+                                            {stepDetail.analyses.map((analysis, i) => (
+                                                <div key={i} className="bg-background/50 border border-border rounded px-3 py-2 text-xs">
+                                                    <div className="font-semibold text-primary mb-1">{analysis.engine_id}</div>
+                                                    <div className="text-muted-foreground">{analysis.summary}</div>
                                                 </div>
                                             ))}
                                         </div>
-                                    </div>
-                                )}
-                            </Section>
+                                    )}
+                                </div>
 
-                            {/* Response Section */}
-                            {stepDetail.response && (
-                                <Section title="Response" icon={Bot}>
-                                    <CodeBlock content={stepDetail.response} />
-                                </Section>
-                            )}
+                                {/* Content */}
+                                <div className="p-6 space-y-8">
+                                    {/* Prompt Section */}
+                                    <Section title="Prompt" icon={Terminal}>
+                                        {stepDetail.prompt.system && (
+                                            <div className="mb-4">
+                                                <div className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">System</div>
+                                                <div className="bg-muted/30 p-3 rounded-md text-sm font-mono whitespace-pre-wrap">{stepDetail.prompt.system}</div>
+                                            </div>
+                                        )}
+                                        {stepDetail.prompt.user && (
+                                            <div>
+                                                <div className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">User</div>
+                                                <div className="bg-muted/30 p-3 rounded-md text-sm whitespace-pre-wrap">{stepDetail.prompt.user}</div>
+                                            </div>
+                                        )}
+                                    </Section>
 
-                            {/* Metadata Section */}
-                            {stepDetail.metadata && Object.keys(stepDetail.metadata).length > 0 && (
-                                <Section title="Metadata" icon={Cpu}>
-                                    <CodeBlock content={JSON.stringify(stepDetail.metadata, null, 2)} language="json" />
-                                </Section>
-                            )}
-                        </div>
+                                    {/* Response Section */}
+                                    {stepDetail.response && (
+                                        <Section title="Response" icon={Bot}>
+                                            <div className="bg-muted/30 p-4 rounded-md text-sm whitespace-pre-wrap leading-relaxed">
+                                                {stepDetail.response}
+                                            </div>
+                                        </Section>
+                                    )}
+
+                                    {/* Tools Section */}
+                                    {stepDetail.prompt.tools_trace && stepDetail.prompt.tools_trace.length > 0 && (
+                                        <Section title="Tool Usage" icon={Cpu}>
+                                            <div className="space-y-3">
+                                                {stepDetail.prompt.tools_trace.map((tool, i) => (
+                                                    <div key={i} className="border border-border rounded-md overflow-hidden">
+                                                        <div className="bg-muted/50 px-3 py-2 text-xs font-mono border-b border-border flex justify-between">
+                                                            <span className="font-semibold">{tool.tool_name}</span>
+                                                            <span className="text-muted-foreground">Duration: {tool.duration_ms}ms</span>
+                                                        </div>
+                                                        <div className="p-3 text-xs space-y-2">
+                                                            <div>
+                                                                <span className="text-muted-foreground">Input:</span>
+                                                                <pre className="mt-1 overflow-x-auto">{JSON.stringify(tool.input, null, 2)}</pre>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-muted-foreground">Output:</span>
+                                                                <pre className="mt-1 overflow-x-auto text-primary">{JSON.stringify(tool.output, null, 2)}</pre>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </Section>
+                                    )}
+
+                                    {/* Metadata Section */}
+                                    {stepDetail.metadata && Object.keys(stepDetail.metadata).length > 0 && (
+                                        <Section title="Metadata" icon={Activity}>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                {Object.entries(stepDetail.metadata).map(([key, value]) => (
+                                                    <div key={key} className="bg-muted/30 p-3 rounded-md">
+                                                        <div className="text-xs text-muted-foreground mb-1">{key}</div>
+                                                        <div className="text-sm font-mono truncate">{String(value)}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </Section>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                                Select a step to view details
+                            </div>
+                        )}
                     </div>
-                ) : (
-                    <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                        Select a step to view details
-                    </div>
-                )}
-            </div>
+                </div>
+            )}
         </div>
     )
 }
 
-function Badge({ role, size = "sm" }: { role: string; size?: "sm" | "lg" }) {
-    const isUser = role === 'user'
-    const Icon = isUser ? User : Bot
+function Badge({ role, size = 'sm' }: { role: string; size?: 'sm' | 'lg' }) {
+    const colors = {
+        user: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+        assistant: 'bg-green-500/10 text-green-500 border-green-500/20',
+        system: 'bg-orange-500/10 text-orange-500 border-orange-500/20'
+    }
+
+    const icons = {
+        user: User,
+        assistant: Bot,
+        system: Terminal
+    }
+
+    const Icon = icons[role as keyof typeof icons] || Activity
 
     return (
-        <div className={cn(
-            "inline-flex items-center gap-2 rounded-full font-medium capitalize",
-            isUser ? "bg-blue-500/10 text-blue-400" : "bg-purple-500/10 text-purple-400",
-            size === "sm" ? "px-2.5 py-0.5 text-xs" : "px-4 py-1.5 text-sm"
+        <span className={cn(
+            "inline-flex items-center gap-1.5 rounded-full border font-medium capitalize",
+            colors[role as keyof typeof colors] || "bg-gray-500/10 text-gray-500",
+            size === 'sm' ? "px-2.5 py-0.5 text-xs" : "px-3 py-1 text-sm"
         )}>
-            <Icon className={size === "sm" ? "w-3 h-3" : "w-4 h-4"} />
+            <Icon className={size === 'sm' ? "w-3 h-3" : "w-4 h-4"} />
             {role}
-        </div>
+        </span>
     )
 }
 
 function Section({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) {
     return (
         <div>
-            <div className="flex items-center gap-2 mb-3 text-foreground font-medium">
+            <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-foreground/80">
                 <Icon className="w-4 h-4 text-primary" />
                 {title}
             </div>
@@ -186,6 +271,7 @@ function Section({ title, icon: Icon, children }: { title: string; icon: any; ch
         </div>
     )
 }
+
 
 function CodeBlock({ content }: { content: string; language?: string }) {
     return (

@@ -14,6 +14,7 @@ class Run(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     steps = relationship("Step", back_populates="run")
+    spans = relationship("SpanDB", back_populates="run")
 
 class Step(Base):
     __tablename__ = 'steps'
@@ -44,6 +45,24 @@ class AnalysisResultDB(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     step = relationship("Step", back_populates="analyses")
+
+class SpanDB(Base):
+    __tablename__ = 'spans'
+
+    span_id = Column(String, primary_key=True)
+    trace_id = Column(String, ForeignKey('runs.id'), nullable=False)
+    parent_id = Column(String, nullable=True)
+    name = Column(String, nullable=False)
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime, nullable=True)
+    span_kind = Column(String, nullable=False)
+    attributes_json = Column(Text, nullable=True)
+    input_json = Column(Text, nullable=True)
+    output_json = Column(Text, nullable=True)
+    status_code = Column(String, default="OK")
+    events_json = Column(Text, nullable=True)
+
+    run = relationship("Run", back_populates="spans")
 
 # Database setup
 DATABASE_URL = "sqlite:///./telemetry.db"
