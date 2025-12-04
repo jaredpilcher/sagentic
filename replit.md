@@ -25,19 +25,9 @@ A lightweight, open-source telemetry service for LLM agents, built with Python, 
 ## Running the Application
 
 ### Development Mode
-**Frontend** (Already Running):
-The frontend is configured to run automatically via the "Frontend" workflow on port 5000.
-
-**Backend**:
-The backend needs to be started manually in development:
-```bash
-uvicorn src.api.server:app --host localhost --port 3000
-```
-
-Or use the development script:
-```bash
-./start_backend.sh
-```
+Both services are configured to run automatically via workflows:
+- **Frontend**: Runs on port 5000 via "Frontend" workflow
+- **Backend**: Runs on port 3000 via "Backend" workflow
 
 The frontend proxies `/api` requests to the backend on port 3000.
 
