@@ -24,21 +24,33 @@ A lightweight, open-source telemetry service for LLM agents, built with Python, 
 
 ## Running the Application
 
-### Frontend (Already Running)
+### Development Mode
+**Frontend** (Already Running):
 The frontend is configured to run automatically via the "Frontend" workflow on port 5000.
 
-### Backend
-To start the backend server manually:
+**Backend**:
+The backend needs to be started manually in development:
 ```bash
 uvicorn src.api.server:app --host localhost --port 3000
 ```
 
-Or use the provided script:
+Or use the development script:
 ```bash
 ./start_backend.sh
 ```
 
 The frontend proxies `/api` requests to the backend on port 3000.
+
+### Production Mode (Deployment)
+When deployed, both services run automatically:
+- Backend: uvicorn on 0.0.0.0:3000
+- Frontend: vite preview on 0.0.0.0:5000
+- Startup script: `start_production.sh`
+
+The deployment is configured to:
+1. Build the frontend (`npm run build`)
+2. Start both backend and frontend using `start_production.sh`
+3. Use VM deployment target for stateful operation
 
 ## Recent Changes (Dec 4, 2025)
 - Configured Vite to bind to 0.0.0.0:5000 with host verification bypass
