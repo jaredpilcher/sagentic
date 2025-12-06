@@ -1,12 +1,7 @@
-
 import { Routes, Route } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import RunDetail from './pages/RunDetail'
-import Generations from './pages/Generations'
-import Prompts from './pages/Prompts'
-import Datasets from './pages/Datasets'
-import Playground from './pages/Playground'
-import Compare from './pages/Compare'
+import Evaluations from './pages/Evaluations'
 import Layout from './components/Layout'
 
 function App() {
@@ -14,12 +9,8 @@ function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/generations" element={<Generations />} />
-        <Route path="/prompts" element={<Prompts />} />
-        <Route path="/datasets" element={<Datasets />} />
-        <Route path="/playground" element={<Playground />} />
-        <Route path="/compare" element={<Compare />} />
         <Route path="/runs/:runId" element={<RunDetail />} />
+        <Route path="/evaluations" element={<Evaluations />} />
       </Routes>
     </Layout>
   )

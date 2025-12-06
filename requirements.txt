@@ -8,3 +8,7 @@ gunicorn
 psycopg2-binary
 structlog
 litellm
+alembic
+asyncpg
+redis
+requests

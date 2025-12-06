@@ -1,389 +1,412 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import axios from 'axios'
-import { format } from 'date-fns'
-import { Bot, User, Terminal, Cpu, Layers, Activity, ThumbsUp, ThumbsDown, MessageSquare, Tag } from 'lucide-react'
-import { cn } from '../lib/utils'
-import TraceView from '../components/TraceView'
+import { ArrowLeft, Clock, Zap, DollarSign, CheckCircle, XCircle, ChevronDown, ChevronRight, MessageSquare, GitBranch } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
+import { motion, AnimatePresence } from 'framer-motion'
 
-interface Step {
+interface Message {
     id: string
+    order: number
     role: string
-    timestamp: string
+    content: string | null
+    model: string | null
+    provider: string | null
+    input_tokens: number | null
+    output_tokens: number | null
+    total_tokens: number | null
+    cost: number | null
+    latency_ms: number | null
+    tool_calls: any[] | null
+    tool_results: any[] | null
 }
 
-interface StepDetail extends Step {
-    prompt: {
-        user?: string
-        system?: string
-        assistant_context?: string
-        tools_trace?: any[]
-    }
-    response?: string
-    metadata?: any
-    analyses?: any[]
+interface NodeExecution {
+    id: string
+    node_key: string
+    node_type: string | null
+    order: number
+    status: string
+    started_at: string | null
+    ended_at: string | null
+    latency_ms: number | null
+    state_in: Record<string, any> | null
+    state_out: Record<string, any> | null
+    state_diff: { added: Record<string, any>; removed: Record<string, any>; modified: Record<string, any> } | null
+    error: string | null
+    messages: Message[]
 }
 
-interface Span {
-    span_id: string
-    trace_id: string
-    parent_id: string | null
-    name: string
-    start_time: string
-    end_time: string | null
-    span_kind: 'AGENT' | 'LLM' | 'TOOL' | 'CHAIN'
-    attributes: any
-    status_code: 'OK' | 'ERROR'
+interface Edge {
+    id: string
+    from_node: string
+    to_node: string
+    condition_label: string | null
+    order: number
 }
 
-interface Score {
-    score_id: string
-    trace_id: string
-    name: string
-    value: number
-    comment?: string
-    timestamp: string
+interface RunDetail {
+    id: string
+    graph_id: string | null
+    graph_version: string | null
+    framework: string
+    agent_id: string | null
+    status: string
+    started_at: string
+    ended_at: string | null
+    input_state: Record<string, any> | null
+    output_state: Record<string, any> | null
+    total_tokens: number
+    total_cost: number
+    total_latency_ms: number
+    error: string | null
+    tags: string[] | null
+    run_metadata: Record<string, any> | null
+    nodes: NodeExecution[]
+    edges: Edge[]
 }
 
-interface Run {
-    run_id: string
-    agent_id: string
-    tags: string[]
-}
-
-export default function RunDetail() {
-    const { runId } = useParams()
-    const [activeTab, setActiveTab] = useState<'timeline' | 'trace' | 'evals'>('timeline')
-
-    const [steps, setSteps] = useState<Step[]>([])
-    const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
-    const [stepDetail, setStepDetail] = useState<StepDetail | null>(null)
-
-    const [spans, setSpans] = useState<Span[]>([])
-    const [scores, setScores] = useState<Score[]>([])
-    const [run, setRun] = useState<Run | null>(null)
-    const [feedback, setFeedback] = useState<number | null>(null)
-
-    const fetchScores = () => {
-        axios.get(`http://localhost:3000/api/runs/${runId}/scores`)
-            .then(res => setScores(res.data))
-            .catch(err => console.log("Error fetching scores", err))
-    }
-
-    const fetchRun = () => {
-        axios.get(`http://localhost:3000/api/runs/${runId}`)
-            .then(res => setRun(res.data))
-            .catch(err => console.log("Error fetching run details", err))
-    }
+export default function RunDetailPage() {
+    const { runId } = useParams<{ runId: string }>()
+    const [run, setRun] = useState<RunDetail | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
+    const [activeTab, setActiveTab] = useState<'timeline' | 'graph'>('timeline')
 
     useEffect(() => {
-        axios.get(`http://localhost:3000/api/runs/${runId}/steps`)
+        if (!runId) return
+        axios.get(`/api/runs/${runId}`)
             .then(res => {
-                setSteps(res.data)
-                if (res.data.length > 0) setSelectedStepId(res.data[0].id)
+                setRun(res.data)
+                if (res.data.nodes.length > 0) {
+                    setExpandedNodes(new Set([res.data.nodes[0].id]))
+                }
             })
-
-        axios.get(`http://localhost:3000/api/runs/${runId}/spans`)
-            .then(res => setSpans(res.data))
-            .catch(() => console.log("No spans found or error fetching spans"))
-
-        fetchScores()
-        fetchRun()
+            .catch(err => console.error(err))
+            .finally(() => setLoading(false))
     }, [runId])
 
-    const handleFeedback = (value: number) => {
-        if (!runId) return
-        axios.post('http://localhost:3000/api/feedback', {
-            id: crypto.randomUUID(),
-            run_id: runId,
-            value: value,
-            comment: null,
-            created_at: new Date().toISOString()
+    const toggleNode = (nodeId: string) => {
+        setExpandedNodes(prev => {
+            const newSet = new Set(prev)
+            if (newSet.has(nodeId)) {
+                newSet.delete(nodeId)
+            } else {
+                newSet.add(nodeId)
+            }
+            return newSet
         })
-            .then(() => setFeedback(value))
-            .catch(err => console.error(err))
     }
 
-    useEffect(() => {
-        if (selectedStepId && activeTab === 'timeline') {
-            axios.get(`http://localhost:3000/api/steps/${selectedStepId}`)
-                .then(res => setStepDetail(res.data))
-        }
-    }, [selectedStepId, activeTab])
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="text-muted-foreground">Loading run details...</div>
+            </div>
+        )
+    }
+
+    if (!run) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="text-muted-foreground">Run not found</div>
+            </div>
+        )
+    }
 
     return (
-        <div className="h-[calc(100vh-8rem)] flex flex-col gap-4">
-            {/* Tab Switcher */}
-            <div className="flex gap-2 border-b border-border pb-2">
-                <button
-                    onClick={() => setActiveTab('timeline')}
-                    className={cn(
-                        "px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2",
-                        activeTab === 'timeline' ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent"
+        <div className="space-y-6">
+            <div className="flex items-center gap-4">
+                <Link to="/" className="p-2 hover:bg-accent rounded-lg transition-colors">
+                    <ArrowLeft className="w-5 h-5" />
+                </Link>
+                <div>
+                    <h2 className="text-2xl font-bold">{run.graph_id || 'Workflow Run'}</h2>
+                    <p className="text-sm text-muted-foreground font-mono">{run.id}</p>
+                </div>
+                <div className="ml-auto flex items-center gap-2">
+                    {run.status === 'completed' ? (
+                        <span className="flex items-center gap-1 text-green-500 text-sm">
+                            <CheckCircle className="w-4 h-4" /> Completed
+                        </span>
+                    ) : run.status === 'failed' ? (
+                        <span className="flex items-center gap-1 text-red-500 text-sm">
+                            <XCircle className="w-4 h-4" /> Failed
+                        </span>
+                    ) : (
+                        <span className="flex items-center gap-1 text-blue-500 text-sm">
+                            <Clock className="w-4 h-4" /> Running
+                        </span>
                     )}
-                >
-                    <Activity className="w-4 h-4" />
-                    Timeline
-                </button>
-                <button
-                    onClick={() => setActiveTab('trace')}
-                    className={cn(
-                        "px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2",
-                        activeTab === 'trace' ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent"
-                    )}
-                >
-                    <Layers className="w-4 h-4" />
-                    Trace View
-                </button>
-                <button
-                    onClick={() => setActiveTab('evals')}
-                    className={cn(
-                        "px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2",
-                        activeTab === 'evals' ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-accent"
-                    )}
-                >
-                    <MessageSquare className="w-4 h-4" />
-                    Evaluations
-                </button>
+                </div>
             </div>
 
-            {activeTab === 'trace' ? (
-                <div className="flex-1 bg-card border border-border rounded-xl p-6 overflow-y-auto">
-                    <TraceView spans={spans} />
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="p-4 rounded-lg bg-card border border-border">
+                    <div className="text-xs text-muted-foreground mb-1">Framework</div>
+                    <div className="font-medium">{run.framework}</div>
                 </div>
-            ) : activeTab === 'evals' ? (
-                <div className="flex-1 bg-card border border-border rounded-xl p-6 overflow-y-auto">
-                    <div className="max-w-2xl mx-auto space-y-8">
-                        <div className="bg-muted/30 p-6 rounded-xl border border-border">
-                            <h3 className="text-lg font-semibold mb-4">Add Evaluation</h3>
-                            <div className="flex gap-4">
-                                <button
-                                    onClick={() => handleFeedback(1.0)}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${feedback === 1.0 ? 'bg-green-500/20 text-green-500 border border-green-500/30' : 'bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500/20'}`}
-                                >
-                                    <ThumbsUp className="w-4 h-4" />
-                                    Thumbs Up
-                                </button>
-                                <button
-                                    onClick={() => handleFeedback(0.0)}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${feedback === 0.0 ? 'bg-red-500/20 text-red-500 border border-red-500/30' : 'bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20'}`}
-                                >
-                                    <ThumbsDown className="w-4 h-4" />
-                                    Thumbs Down
-                                </button>
-                            </div>
-                        </div>
-
-                        <div>
-                            <h3 className="text-lg font-semibold mb-4">Score History</h3>
-                            <div className="space-y-3">
-                                {scores.length === 0 ? (
-                                    <div className="text-muted-foreground text-sm">No evaluations yet.</div>
-                                ) : (
-                                    scores.map(score => (
-                                        <div key={score.score_id} className="flex items-center justify-between p-4 bg-card border border-border rounded-lg">
-                                            <div className="flex items-center gap-3">
-                                                {score.name === 'user_feedback' && (
-                                                    score.value === 1.0 ? <ThumbsUp className="w-5 h-5 text-green-500" /> : <ThumbsDown className="w-5 h-5 text-red-500" />
-                                                )}
-                                                <div>
-                                                    <div className="font-medium">{score.name}</div>
-                                                    <div className="text-xs text-muted-foreground">{format(new Date(score.timestamp), 'PPpp')}</div>
-                                                </div>
-                                            </div>
-                                            <div className="font-mono font-semibold text-lg">{score.value}</div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
+                <div className="p-4 rounded-lg bg-card border border-border">
+                    <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> Latency
                     </div>
+                    <div className="font-medium">{run.total_latency_ms}ms</div>
                 </div>
-            ) : (
-                <div className="flex-1 flex gap-6 overflow-hidden">
-                    {/* Timeline Sidebar */}
-                    <div className="w-1/3 bg-card border border-border rounded-xl overflow-hidden flex flex-col">
-                        <div className="p-4 border-b border-border bg-muted/30">
-                            <h3 className="font-semibold">Run Timeline</h3>
-                            <div className="flex items-center justify-between mt-1">
-                                <p className="text-xs text-muted-foreground font-mono">{runId}</p>
-                                {run && (
-                                    <div className="flex gap-1">
-                                        {run.tags.map(tag => (
-                                            <span key={tag} className="px-1.5 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-medium flex items-center gap-1">
-                                                <Tag className="w-3 h-3" />
-                                                {tag}
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                            {steps.map((step) => (
-                                <button
-                                    key={step.id}
-                                    onClick={() => setSelectedStepId(step.id)}
-                                    className={cn(
-                                        "w-full text-left p-3 rounded-lg text-sm transition-all border border-transparent",
-                                        selectedStepId === step.id
-                                            ? "bg-primary/10 border-primary/20 shadow-sm"
-                                            : "hover:bg-accent/50"
-                                    )}
-                                >
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <Badge role={step.role} />
-                                        <span className="text-xs text-muted-foreground ml-auto">
-                                            {format(new Date(step.timestamp), 'HH:mm:ss')}
-                                        </span>
-                                    </div>
-                                    <div className="text-xs text-muted-foreground font-mono truncate">
-                                        {step.id}
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
+                <div className="p-4 rounded-lg bg-card border border-border">
+                    <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                        <Zap className="w-3 h-3" /> Tokens
                     </div>
-
-                    {/* Detail View */}
-                    <div className="flex-1 bg-card border border-border rounded-xl overflow-hidden flex flex-col">
-                        {stepDetail ? (
-                            <div className="flex-1 overflow-y-auto">
-                                {/* Header */}
-                                <div className="p-6 border-b border-border bg-muted/10">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <Badge role={stepDetail.role} size="lg" />
-                                        <div className="text-sm text-muted-foreground font-mono">{stepDetail.timestamp}</div>
-                                    </div>
-
-                                    {/* Analysis Stats */}
-                                    {stepDetail.analyses && stepDetail.analyses.length > 0 && (
-                                        <div className="flex gap-4 mt-4">
-                                            {stepDetail.analyses.map((analysis, i) => (
-                                                <div key={i} className="bg-background/50 border border-border rounded px-3 py-2 text-xs">
-                                                    <div className="font-semibold text-primary mb-1">{analysis.engine_id}</div>
-                                                    <div className="text-muted-foreground">{analysis.summary}</div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Content */}
-                                <div className="p-6 space-y-8">
-                                    {/* Prompt Section */}
-                                    <Section title="Prompt" icon={Terminal}>
-                                        {stepDetail.prompt.system && (
-                                            <div className="mb-4">
-                                                <div className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">System</div>
-                                                <div className="bg-muted/30 p-3 rounded-md text-sm font-mono whitespace-pre-wrap">{stepDetail.prompt.system}</div>
-                                            </div>
-                                        )}
-                                        {stepDetail.prompt.user && (
-                                            <div>
-                                                <div className="text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">User</div>
-                                                <div className="bg-muted/30 p-3 rounded-md text-sm whitespace-pre-wrap">{stepDetail.prompt.user}</div>
-                                            </div>
-                                        )}
-                                    </Section>
-
-                                    {/* Response Section */}
-                                    {stepDetail.response && (
-                                        <Section title="Response" icon={Bot}>
-                                            <div className="bg-muted/30 p-4 rounded-md text-sm whitespace-pre-wrap leading-relaxed">
-                                                {stepDetail.response}
-                                            </div>
-                                        </Section>
-                                    )}
-
-                                    {/* Tools Section */}
-                                    {stepDetail.prompt.tools_trace && stepDetail.prompt.tools_trace.length > 0 && (
-                                        <Section title="Tool Usage" icon={Cpu}>
-                                            <div className="space-y-3">
-                                                {stepDetail.prompt.tools_trace.map((tool, i) => (
-                                                    <div key={i} className="border border-border rounded-md overflow-hidden">
-                                                        <div className="bg-muted/50 px-3 py-2 text-xs font-mono border-b border-border flex justify-between">
-                                                            <span className="font-semibold">{tool.tool_name}</span>
-                                                            <span className="text-muted-foreground">Duration: {tool.duration_ms}ms</span>
-                                                        </div>
-                                                        <div className="p-3 text-xs space-y-2">
-                                                            <div>
-                                                                <span className="text-muted-foreground">Input:</span>
-                                                                <pre className="mt-1 overflow-x-auto">{JSON.stringify(tool.input, null, 2)}</pre>
-                                                            </div>
-                                                            <div>
-                                                                <span className="text-muted-foreground">Output:</span>
-                                                                <pre className="mt-1 overflow-x-auto text-primary">{JSON.stringify(tool.output, null, 2)}</pre>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </Section>
-                                    )}
-
-                                    {/* Metadata Section */}
-                                    {stepDetail.metadata && Object.keys(stepDetail.metadata).length > 0 && (
-                                        <Section title="Metadata" icon={Activity}>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                {Object.entries(stepDetail.metadata).map(([key, value]) => (
-                                                    <div key={key} className="bg-muted/30 p-3 rounded-md">
-                                                        <div className="text-xs text-muted-foreground mb-1">{key}</div>
-                                                        <div className="text-sm font-mono truncate">{String(value)}</div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </Section>
-                                    )}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                                Select a step to view details
-                            </div>
-                        )}
+                    <div className="font-medium">{run.total_tokens.toLocaleString()}</div>
+                </div>
+                <div className="p-4 rounded-lg bg-card border border-border">
+                    <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                        <DollarSign className="w-3 h-3" /> Cost
                     </div>
+                    <div className="font-medium">${run.total_cost.toFixed(4)}</div>
+                </div>
+            </div>
+
+            {run.error && (
+                <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500">
+                    <div className="font-medium mb-1">Error</div>
+                    <div className="text-sm font-mono">{run.error}</div>
                 </div>
             )}
-        </div>
-    )
-}
 
-function Badge({ role, size = 'sm' }: { role: string; size?: 'sm' | 'lg' }) {
-    const colors = {
-        user: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-        assistant: 'bg-green-500/10 text-green-500 border-green-500/20',
-        system: 'bg-orange-500/10 text-orange-500 border-orange-500/20'
-    }
-
-    const icons = {
-        user: User,
-        assistant: Bot,
-        system: Terminal
-    }
-
-    const Icon = icons[role as keyof typeof icons] || Activity
-
-    return (
-        <span className={cn(
-            "inline-flex items-center gap-1.5 rounded-full border font-medium capitalize",
-            colors[role as keyof typeof colors] || "bg-gray-500/10 text-gray-500",
-            size === 'sm' ? "px-2.5 py-0.5 text-xs" : "px-3 py-1 text-sm"
-        )}>
-            <Icon className={size === 'sm' ? "w-3 h-3" : "w-4 h-4"} />
-            {role}
-        </span>
-    )
-}
-
-function Section({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) {
-    return (
-        <div>
-            <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-foreground/80">
-                <Icon className="w-4 h-4 text-primary" />
-                {title}
+            <div className="flex gap-2 border-b border-border">
+                <button
+                    onClick={() => setActiveTab('timeline')}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                        activeTab === 'timeline'
+                            ? 'text-primary border-b-2 border-primary'
+                            : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                    Timeline View
+                </button>
+                <button
+                    onClick={() => setActiveTab('graph')}
+                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                        activeTab === 'graph'
+                            ? 'text-primary border-b-2 border-primary'
+                            : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                    Graph View
+                </button>
             </div>
-            {children}
+
+            {activeTab === 'timeline' && (
+                <div className="space-y-4">
+                    {run.nodes.map((node, index) => (
+                        <motion.div
+                            key={node.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className="bg-card border border-border rounded-xl overflow-hidden"
+                        >
+                            <button
+                                onClick={() => toggleNode(node.id)}
+                                className="w-full p-4 flex items-center justify-between hover:bg-accent/50 transition-colors"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold">
+                                        {index + 1}
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="font-medium flex items-center gap-2">
+                                            {node.node_key}
+                                            {node.node_type && (
+                                                <span className="text-xs px-2 py-0.5 bg-accent rounded text-muted-foreground">
+                                                    {node.node_type}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground flex items-center gap-3">
+                                            {node.latency_ms && <span>{node.latency_ms}ms</span>}
+                                            <span>{node.messages.length} messages</span>
+                                            {node.status === 'failed' && (
+                                                <span className="text-red-500">Failed</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                                {expandedNodes.has(node.id) ? (
+                                    <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                                ) : (
+                                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                                )}
+                            </button>
+
+                            <AnimatePresence>
+                                {expandedNodes.has(node.id) && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        className="border-t border-border"
+                                    >
+                                        <div className="p-4 space-y-4">
+                                            {node.state_diff && (
+                                                <div className="space-y-2">
+                                                    <h4 className="text-sm font-medium text-muted-foreground">State Changes</h4>
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                        {Object.keys(node.state_diff.added).length > 0 && (
+                                                            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                                                                <div className="text-xs font-medium text-green-500 mb-2">Added</div>
+                                                                <pre className="text-xs overflow-auto max-h-32">
+                                                                    {JSON.stringify(node.state_diff.added, null, 2)}
+                                                                </pre>
+                                                            </div>
+                                                        )}
+                                                        {Object.keys(node.state_diff.removed).length > 0 && (
+                                                            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                                                                <div className="text-xs font-medium text-red-500 mb-2">Removed</div>
+                                                                <pre className="text-xs overflow-auto max-h-32">
+                                                                    {JSON.stringify(node.state_diff.removed, null, 2)}
+                                                                </pre>
+                                                            </div>
+                                                        )}
+                                                        {Object.keys(node.state_diff.modified).length > 0 && (
+                                                            <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                                                                <div className="text-xs font-medium text-yellow-500 mb-2">Modified</div>
+                                                                <pre className="text-xs overflow-auto max-h-32">
+                                                                    {JSON.stringify(node.state_diff.modified, null, 2)}
+                                                                </pre>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {node.messages.length > 0 && (
+                                                <div className="space-y-2">
+                                                    <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                                        <MessageSquare className="w-4 h-4" /> Messages
+                                                    </h4>
+                                                    <div className="space-y-2">
+                                                        {node.messages.map((msg) => (
+                                                            <div
+                                                                key={msg.id}
+                                                                className={`p-3 rounded-lg ${
+                                                                    msg.role === 'assistant'
+                                                                        ? 'bg-primary/5 border border-primary/20'
+                                                                        : msg.role === 'user'
+                                                                        ? 'bg-accent/50'
+                                                                        : msg.role === 'system'
+                                                                        ? 'bg-yellow-500/5 border border-yellow-500/20'
+                                                                        : 'bg-accent'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center justify-between mb-2">
+                                                                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                                                        {msg.role}
+                                                                    </span>
+                                                                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                                                        {msg.model && <span>{msg.model}</span>}
+                                                                        {msg.total_tokens && <span>{msg.total_tokens} tokens</span>}
+                                                                        {msg.latency_ms && <span>{msg.latency_ms}ms</span>}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="text-sm whitespace-pre-wrap">
+                                                                    {msg.content || (msg.tool_calls ? (
+                                                                        <div className="space-y-1">
+                                                                            {msg.tool_calls.map((tc, i) => (
+                                                                                <div key={i} className="font-mono text-xs bg-background/50 p-2 rounded">
+                                                                                    Tool: {tc.name || tc.function?.name || 'unknown'}
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : 'No content')}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {node.error && (
+                                                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                                                    <div className="text-xs font-medium text-red-500 mb-1">Error</div>
+                                                    <div className="text-sm font-mono text-red-400">{node.error}</div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </motion.div>
+                    ))}
+                </div>
+            )}
+
+            {activeTab === 'graph' && (
+                <div className="bg-card border border-border rounded-xl p-6">
+                    <div className="flex items-center gap-2 mb-4">
+                        <GitBranch className="w-5 h-5 text-primary" />
+                        <h3 className="font-medium">Workflow Graph</h3>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4">
+                        {run.nodes.map((node, index) => (
+                            <div key={node.id} className="flex items-center gap-2">
+                                <div
+                                    className={`px-4 py-2 rounded-lg border-2 ${
+                                        node.status === 'failed'
+                                            ? 'border-red-500 bg-red-500/10'
+                                            : 'border-primary bg-primary/10'
+                                    }`}
+                                >
+                                    <div className="font-medium text-sm">{node.node_key}</div>
+                                    <div className="text-xs text-muted-foreground">{node.latency_ms}ms</div>
+                                </div>
+                                {index < run.nodes.length - 1 && (
+                                    <div className="flex items-center">
+                                        <div className="w-8 h-0.5 bg-border"></div>
+                                        <div className="w-0 h-0 border-t-4 border-b-4 border-l-4 border-transparent border-l-border"></div>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    {run.edges.length > 0 && (
+                        <div className="mt-6 pt-4 border-t border-border">
+                            <h4 className="text-sm font-medium text-muted-foreground mb-2">Transitions</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {run.edges.map((edge) => (
+                                    <div key={edge.id} className="text-xs bg-accent px-2 py-1 rounded">
+                                        {edge.from_node} → {edge.to_node}
+                                        {edge.condition_label && (
+                                            <span className="ml-1 text-muted-foreground">({edge.condition_label})</span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {(run.input_state || run.output_state) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {run.input_state && (
+                        <div className="bg-card border border-border rounded-xl p-4">
+                            <h3 className="font-medium mb-2">Input State</h3>
+                            <pre className="text-xs bg-background p-3 rounded-lg overflow-auto max-h-48">
+                                {JSON.stringify(run.input_state, null, 2)}
+                            </pre>
+                        </div>
+                    )}
+                    {run.output_state && (
+                        <div className="bg-card border border-border rounded-xl p-4">
+                            <h3 className="font-medium mb-2">Output State</h3>
+                            <pre className="text-xs bg-background p-3 rounded-lg overflow-auto max-h-48">
+                                {JSON.stringify(run.output_state, null, 2)}
+                            </pre>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     )
 }
