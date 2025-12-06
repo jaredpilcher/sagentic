@@ -2,7 +2,7 @@ import sys
 import json
 import asyncio
 import os
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 import uuid
 
@@ -34,7 +34,22 @@ def compute_state_diff(state_in: dict, state_out: dict) -> dict:
     return diff
 
 
+def parse_datetime(val: Any) -> Optional[datetime]:
+    """Parse datetime from string or return as-is if already datetime."""
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val
+    if isinstance(val, str):
+        try:
+            return datetime.fromisoformat(val.replace('Z', '+00:00'))
+        except ValueError:
+            return None
+    return None
+
+
 def ingest_trace(args: Dict[str, Any]) -> Dict[str, Any]:
+    """Ingest a trace with upsert support, proper timestamps, and source ordering."""
     if not SessionLocal:
         return {"error": "Database not configured"}
     
@@ -43,6 +58,17 @@ def ingest_trace(args: Dict[str, Any]) -> Dict[str, Any]:
         run_id = args.get("run_id") or str(uuid.uuid4())
         now = datetime.utcnow()
         
+        existing_run = db.query(Run).filter(Run.id == run_id).first()
+        if existing_run:
+            db.query(Edge).filter(Edge.run_id == run_id).delete()
+            node_ids = db.query(NodeExecution.id).filter(NodeExecution.run_id == run_id).all()
+            for (node_id,) in node_ids:
+                db.query(Message).filter(Message.node_execution_id == node_id).delete()
+            db.query(NodeExecution).filter(NodeExecution.run_id == run_id).delete()
+            db.delete(existing_run)
+            db.flush()
+            db.expunge(existing_run)
+        
         nodes = args.get("nodes", [])
         edges = args.get("edges", [])
         
@@ -50,15 +76,19 @@ def ingest_trace(args: Dict[str, Any]) -> Dict[str, Any]:
         total_cost = 0.0
         total_latency = 0
         
+        run_started_at = parse_datetime(args.get("started_at")) or now
+        status = args.get("status", "completed")
+        run_ended_at = parse_datetime(args.get("ended_at")) or (now if status != "running" else None)
+        
         run = Run(
             id=run_id,
             graph_id=args.get("graph_id"),
             graph_version=args.get("graph_version"),
             framework=args.get("framework", "langgraph"),
             agent_id=args.get("agent_id"),
-            status=args.get("status", "completed"),
-            started_at=now,
-            ended_at=now if args.get("status") != "running" else None,
+            status=status,
+            started_at=run_started_at,
+            ended_at=run_ended_at,
             input_state=args.get("input_state"),
             output_state=args.get("output_state"),
             error=args.get("error"),
@@ -67,7 +97,7 @@ def ingest_trace(args: Dict[str, Any]) -> Dict[str, Any]:
         )
         db.add(run)
         
-        for order, node_data in enumerate(nodes):
+        for idx, node_data in enumerate(nodes):
             node_id = str(uuid.uuid4())
             node_latency = 0
             
@@ -77,15 +107,19 @@ def ingest_trace(args: Dict[str, Any]) -> Dict[str, Any]:
             if state_in and state_out:
                 state_diff = compute_state_diff(state_in, state_out)
             
+            node_order = node_data.get("order") if node_data.get("order") is not None else idx
+            node_started_at = parse_datetime(node_data.get("started_at")) or now
+            node_ended_at = parse_datetime(node_data.get("ended_at")) or now
+            
             node = NodeExecution(
                 id=node_id,
                 run_id=run_id,
                 node_key=node_data.get("node_key"),
                 node_type=node_data.get("node_type"),
-                order=order,
+                order=node_order,
                 status="completed" if not node_data.get("error") else "failed",
-                started_at=now,
-                ended_at=now,
+                started_at=node_started_at,
+                ended_at=node_ended_at,
                 state_in=state_in,
                 state_out=state_out,
                 state_diff=state_diff,

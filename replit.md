@@ -1,64 +1,91 @@
-# Sagentic - Agent Step Telemetry Service
+# Sagentic - LangGraph Observability Platform
 
 ## Overview
-A lightweight, open-source telemetry service for LLM agents, built with Python, FastAPI, SQLite, and a React frontend.
+A lightweight, production-ready observability platform for LangGraph agent workflows. Built with Python, FastAPI, PostgreSQL (Alembic migrations), and a React frontend.
 
 ## Project Structure
 - **Frontend**: React + Vite + TypeScript (in `frontend/`)
-  - Dashboard for viewing agent telemetry
+  - Dashboard with workflow metrics (runs, completion, latency, cost, tokens)
+  - Run Detail page with timeline view, state diff visualization, message drill-down
   - Configured to run on port 5000
 - **Backend**: FastAPI + Python (in `src/`)
-  - REST API for agent telemetry ingestion
+  - REST API for trace ingestion and querying
   - Runs on port 3000
-  - Uses SQLite database for persistence
+  - Uses PostgreSQL database with Alembic migrations
+- **MCP Server**: (`src/mcp/server.py`)
+  - JSON-RPC MCP server for LangGraph integration
+  - Tools: ingest_trace, list_runs, get_run
 
-## Setup Status
-✅ Python 3.11 installed
-✅ Node.js 20 installed  
-✅ Python dependencies installed
-✅ Frontend dependencies installed
-✅ Vite configured for 0.0.0.0:5000 with proxy to backend
-✅ Frontend workflow configured and running
-✅ Database initialized
-✅ Missing imports (uuid, datetime) added to server.py
+## Data Model
+- **Run**: Workflow execution with graph_id, framework, status, timestamps, states
+- **NodeExecution**: Individual node in the graph with state_in, state_out, state_diff
+- **Message**: LLM messages within a node (role, content, model, tokens, cost, latency)
+- **Edge**: Transitions between nodes with optional condition labels
+- **Evaluation**: Scores and feedback for runs/nodes
+
+## API Endpoints
+- `POST /api/traces` - Ingest complete workflow trace (supports upsert)
+- `GET /api/runs` - List workflow runs with filters
+- `GET /api/runs/{run_id}` - Get detailed run with nodes, messages, edges
+- `GET /api/runs/{run_id}/graph` - Get graph visualization data
+- `GET /api/runs/{run_id}/nodes/{node_id}` - Get node execution detail
+- `POST /api/evaluations` - Create evaluation/feedback
+- `GET /api/health` - Health check
+
+## MCP Server Tools
+- `ingest_trace` - Ingest LangGraph workflow trace with nodes, edges, messages
+- `list_runs` - List recent workflow runs
+- `get_run` - Get detailed run information
+
+## Key Features
+- **Upsert Support**: Re-ingesting same run_id replaces existing data
+- **Timestamp Preservation**: Uses provided timestamps for accurate metrics
+- **Source Ordering**: Preserves node execution order from trace payload
+- **State Diff Visualization**: Shows added, removed, modified keys between states
+- **Message Drill-down**: View full conversation with model, tokens, cost, latency
 
 ## Running the Application
 
 ### Development Mode
-Both services are configured to run automatically via workflows:
-- **Frontend**: Runs on port 5000 via "Frontend" workflow
-- **Backend**: Runs on port 3000 via "Backend" workflow
+Both services configured via workflows:
+- **Frontend**: Port 5000 via "Frontend" workflow
+- **Backend**: Port 3000 via "Backend" workflow
 
-The frontend proxies `/api` requests to the backend on port 3000.
+Frontend proxies `/api` requests to backend.
 
-### Production Mode (Deployment)
-When deployed, both services run automatically:
-- Backend: uvicorn on 0.0.0.0:3000
-- Frontend: vite preview on 0.0.0.0:5000
-- Startup script: `start_production.sh`
+### Ingesting Traces
+```bash
+curl -X POST http://localhost:3000/api/traces \
+  -H "Content-Type: application/json" \
+  -d '{
+    "graph_id": "my-agent",
+    "framework": "langgraph",
+    "nodes": [
+      {
+        "node_key": "classify",
+        "node_type": "llm",
+        "state_in": {"query": "hello"},
+        "state_out": {"query": "hello", "intent": "greeting"},
+        "messages": [
+          {"role": "assistant", "content": "Intent: greeting", "model": "gpt-4", "total_tokens": 45, "cost": 0.001}
+        ]
+      }
+    ],
+    "edges": [{"from_node": "classify", "to_node": "respond"}]
+  }'
+```
 
-The deployment is configured to:
-1. Build the frontend (`npm run build`)
-2. Start both backend and frontend using `start_production.sh`
-3. Use VM deployment target for stateful operation
-
-## Recent Changes (Dec 4, 2025)
-- Configured Vite to bind to 0.0.0.0:5000 with host verification bypass
-- Added missing imports (uuid, datetime) to src/api/server.py
-- Created frontend workflow for automatic startup
-- Initialized SQLite database
-- Created backend startup script
+## Recent Changes (Dec 6, 2025)
+- Transformed to LangGraph-focused observability platform
+- Removed deprecated features: Playground, Prompts, Datasets, Compare
+- Added PostgreSQL with Alembic migrations (replaces SQLite)
+- Implemented upsert logic for trace ingestion
+- Added timestamp and source ordering preservation
+- Built MCP server with ingest_trace, list_runs, get_run tools
+- Created Dashboard with workflow metrics
+- Created Run Detail page with state diff and message viewer
 
 ## Database
-- Uses SQLite (sagentic.db)
-- Auto-initialized on backend startup
-- Schema includes: runs, steps, spans, scores, prompts, datasets, feedback, evaluations, comparisons
-
-## API Endpoints
-- POST `/api/steps` - Ingest agent step
-- POST `/api/spans` - Ingest span
-- POST `/api/scores` - Ingest score
-- POST `/api/feedback` - Ingest feedback
-- GET `/api/runs` - List runs
-- GET `/api/generations` - List generations
-- And more...
+- PostgreSQL (Neon-backed on Replit)
+- Managed with Alembic migrations
+- Tables: runs, node_executions, messages, edges, evaluations

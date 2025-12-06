@@ -12,7 +12,7 @@ from ..core.schemas import (
     TraceIngest, RunCreate, EvaluationCreate,
     RunSummary, RunDetailResponse, RunGraphResponse,
     NodeExecutionResponse, MessageResponse, EdgeResponse,
-    EvaluationResponse, IngestResponse, HealthResponse
+    EvaluationResponse, IngestResponse, HealthResponse, RunStatus
 )
 
 app = FastAPI(
@@ -37,13 +37,32 @@ def health_check():
 
 @app.post("/api/traces", response_model=IngestResponse)
 def ingest_trace(trace: TraceIngest, db: Session = Depends(get_db)):
-    """Ingest a complete workflow trace from LangGraph."""
+    """Ingest a complete workflow trace from LangGraph.
+    
+    Supports upsert: if run_id exists, existing data is replaced with new trace.
+    Uses provided timestamps when available, otherwise defaults to current time.
+    Preserves source ordering from trace payload.
+    """
     run_id = trace.run_id or str(uuid.uuid4())
     now = datetime.utcnow()
+    
+    existing_run = db.query(Run).filter(Run.id == run_id).first()
+    if existing_run:
+        db.query(Edge).filter(Edge.run_id == run_id).delete()
+        node_ids = db.query(NodeExecution.id).filter(NodeExecution.run_id == run_id).all()
+        for (node_id,) in node_ids:
+            db.query(Message).filter(Message.node_execution_id == node_id).delete()
+        db.query(NodeExecution).filter(NodeExecution.run_id == run_id).delete()
+        db.delete(existing_run)
+        db.flush()
+        db.expunge(existing_run)
     
     total_tokens = 0
     total_cost = 0.0
     total_latency = 0
+    
+    run_started_at = trace.started_at or now
+    run_ended_at = trace.ended_at or (now if trace.status != RunStatus.RUNNING else None)
     
     run = Run(
         id=run_id,
@@ -52,8 +71,8 @@ def ingest_trace(trace: TraceIngest, db: Session = Depends(get_db)):
         framework=trace.framework,
         agent_id=trace.agent_id,
         status=trace.status.value,
-        started_at=now,
-        ended_at=now if trace.status != "running" else None,
+        started_at=run_started_at,
+        ended_at=run_ended_at,
         input_state=trace.input_state,
         output_state=trace.output_state,
         error=trace.error,
@@ -62,7 +81,7 @@ def ingest_trace(trace: TraceIngest, db: Session = Depends(get_db)):
     )
     db.add(run)
     
-    for order, node_data in enumerate(trace.nodes):
+    for idx, node_data in enumerate(trace.nodes):
         node_id = str(uuid.uuid4())
         node_latency = 0
         
@@ -70,15 +89,19 @@ def ingest_trace(trace: TraceIngest, db: Session = Depends(get_db)):
         if node_data.state_in and node_data.state_out:
             state_diff = compute_state_diff(node_data.state_in, node_data.state_out)
         
+        node_order = node_data.order if node_data.order is not None else idx
+        node_started_at = node_data.started_at or now
+        node_ended_at = node_data.ended_at or now
+        
         node = NodeExecution(
             id=node_id,
             run_id=run_id,
             node_key=node_data.node_key,
             node_type=node_data.node_type,
-            order=order,
+            order=node_order,
             status="completed" if not node_data.error else "failed",
-            started_at=now,
-            ended_at=now,
+            started_at=node_started_at,
+            ended_at=node_ended_at,
             state_in=node_data.state_in,
             state_out=node_data.state_out,
             state_diff=state_diff,

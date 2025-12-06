@@ -43,6 +43,9 @@ class MessageCreate(BaseModel):
 class NodeExecutionCreate(BaseModel):
     node_key: str
     node_type: Optional[str] = None
+    order: Optional[int] = None
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
     state_in: Optional[Dict[str, Any]] = None
     state_out: Optional[Dict[str, Any]] = None
     messages: List[MessageCreate] = Field(default_factory=list)
@@ -72,6 +75,8 @@ class TraceIngest(BaseModel):
     graph_version: Optional[str] = None
     framework: str = "langgraph"
     agent_id: Optional[str] = None
+    started_at: Optional[datetime] = None
+    ended_at: Optional[datetime] = None
     input_state: Optional[Dict[str, Any]] = None
     output_state: Optional[Dict[str, Any]] = None
     nodes: List[NodeExecutionCreate]
