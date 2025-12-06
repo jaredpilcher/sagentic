@@ -149,3 +149,27 @@ class Evaluation(Base):
     extra_data = Column(JSONB, nullable=True)
     
     run = relationship("Run", back_populates="evaluations")
+
+
+class Extension(Base):
+    """Installed extension/plugin for the platform."""
+    __tablename__ = 'extensions'
+    
+    id = Column(String, primary_key=True, default=generate_uuid)
+    name = Column(String, nullable=False, unique=True, index=True)
+    version = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    
+    status = Column(String, default="enabled", index=True)
+    
+    manifest = Column(JSONB, nullable=False)
+    
+    install_path = Column(String, nullable=False)
+    
+    has_backend = Column(Boolean, default=False)
+    has_frontend = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    extra_data = Column(JSONB, nullable=True)

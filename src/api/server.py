@@ -1,13 +1,22 @@
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import List, Optional
 from datetime import datetime
+from pathlib import Path
 import uuid
+import tempfile
+import os
 
 from ..db.database import get_db
-from ..db.models import Run, NodeExecution, Message, Edge, Evaluation
+from ..db.models import Run, NodeExecution, Message, Edge, Evaluation, Extension
+from ..extensions.manager import ExtensionManager, EXTENSIONS_DIR
+from ..extensions.schemas import (
+    ExtensionInfo, ExtensionManifest, ExtensionListResponse,
+    ExtensionInstallResponse, ExtensionStatusUpdate, FrontendExtensionManifest
+)
 from ..core.schemas import (
     TraceIngest, RunCreate, EvaluationCreate,
     RunSummary, RunDetailResponse, RunGraphResponse,
@@ -452,3 +461,228 @@ def compute_state_diff(state_in: dict, state_out: dict) -> dict:
             }
     
     return diff
+
+
+extension_manager = ExtensionManager(app)
+
+
+@app.get("/api/extensions", response_model=ExtensionListResponse)
+def list_extensions(
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """List all installed extensions."""
+    query = db.query(Extension)
+    if status:
+        query = query.filter(Extension.status == status)
+    
+    extensions = query.order_by(Extension.name).all()
+    
+    return ExtensionListResponse(
+        extensions=[ExtensionInfo(
+            id=e.id,
+            name=e.name,
+            version=e.version,
+            description=e.description,
+            status=e.status,
+            has_backend=e.has_backend or False,
+            has_frontend=e.has_frontend or False,
+            manifest=ExtensionManifest(**e.manifest),
+            created_at=e.created_at,
+            updated_at=e.updated_at
+        ) for e in extensions],
+        total=len(extensions)
+    )
+
+
+@app.get("/api/extensions/frontend-manifest")
+def get_frontend_manifest(db: Session = Depends(get_db)):
+    """Get manifest of enabled frontend extensions for the React app."""
+    extensions = db.query(Extension).filter(
+        Extension.status == "enabled",
+        Extension.has_frontend == True
+    ).all()
+    
+    manifests = []
+    for ext in extensions:
+        manifest = ext.manifest
+        manifests.append(FrontendExtensionManifest(
+            id=ext.id,
+            name=ext.name,
+            version=ext.version,
+            description=ext.description,
+            frontend_entry=manifest.get("frontend_entry"),
+            nav_items=manifest.get("nav_items"),
+            routes=manifest.get("routes"),
+            base_url=f"/api/extensions/{ext.name}/assets"
+        ))
+    
+    return {"extensions": [m.model_dump() for m in manifests]}
+
+
+@app.post("/api/extensions/install", response_model=ExtensionInstallResponse)
+async def install_extension(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """Upload and install an extension package (zip file)."""
+    if not file.filename.endswith('.zip'):
+        raise HTTPException(status_code=400, detail="File must be a .zip archive")
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_file:
+        content = await file.read()
+        temp_file.write(content)
+        temp_path = temp_file.name
+    
+    try:
+        success, message, manifest = extension_manager.install_from_zip(temp_path)
+        
+        if not success:
+            return ExtensionInstallResponse(success=False, message=message)
+        
+        existing = db.query(Extension).filter(Extension.name == manifest["name"]).first()
+        if existing:
+            existing.version = manifest["version"]
+            existing.description = manifest.get("description")
+            existing.manifest = manifest
+            existing.has_backend = bool(manifest.get("backend_entry"))
+            existing.has_frontend = bool(manifest.get("frontend_entry"))
+            existing.updated_at = datetime.utcnow()
+            ext_id = existing.id
+        else:
+            ext_id = str(uuid.uuid4())
+            ext = Extension(
+                id=ext_id,
+                name=manifest["name"],
+                version=manifest["version"],
+                description=manifest.get("description"),
+                status="enabled",
+                manifest=manifest,
+                install_path=str(extension_manager.get_extension_path(manifest["name"], manifest["version"])),
+                has_backend=bool(manifest.get("backend_entry")),
+                has_frontend=bool(manifest.get("frontend_entry"))
+            )
+            db.add(ext)
+        
+        db.commit()
+        
+        if manifest.get("backend_entry"):
+            load_success, load_msg = extension_manager.load_backend(
+                ext_id, manifest["name"], manifest["version"], manifest["backend_entry"]
+            )
+            if not load_success:
+                return ExtensionInstallResponse(
+                    success=True,
+                    extension_id=ext_id,
+                    name=manifest["name"],
+                    message=f"Installed but backend failed to load: {load_msg}"
+                )
+        
+        return ExtensionInstallResponse(
+            success=True,
+            extension_id=ext_id,
+            name=manifest["name"],
+            message=message
+        )
+        
+    finally:
+        os.unlink(temp_path)
+
+
+@app.delete("/api/extensions/{extension_id}", response_model=ExtensionInstallResponse)
+def uninstall_extension(extension_id: str, db: Session = Depends(get_db)):
+    """Uninstall an extension."""
+    ext = db.query(Extension).filter(Extension.id == extension_id).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    extension_manager.unload_backend(extension_id)
+    
+    success, message = extension_manager.uninstall(ext.name, ext.version)
+    
+    db.delete(ext)
+    db.commit()
+    
+    return ExtensionInstallResponse(
+        success=success,
+        extension_id=extension_id,
+        name=ext.name,
+        message=message
+    )
+
+
+@app.patch("/api/extensions/{extension_id}/status")
+def update_extension_status(
+    extension_id: str,
+    update: ExtensionStatusUpdate,
+    db: Session = Depends(get_db)
+):
+    """Enable or disable an extension."""
+    ext = db.query(Extension).filter(Extension.id == extension_id).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    if update.status not in ["enabled", "disabled"]:
+        raise HTTPException(status_code=400, detail="Status must be 'enabled' or 'disabled'")
+    
+    if update.status == "disabled" and ext.status == "enabled":
+        extension_manager.unload_backend(extension_id)
+    elif update.status == "enabled" and ext.status == "disabled":
+        if ext.has_backend and ext.manifest.get("backend_entry"):
+            extension_manager.load_backend(
+                ext.id, ext.name, ext.version, ext.manifest["backend_entry"]
+            )
+    
+    ext.status = update.status
+    ext.updated_at = datetime.utcnow()
+    db.commit()
+    
+    return {"success": True, "status": ext.status}
+
+
+@app.get("/api/extensions/{extension_id}")
+def get_extension(extension_id: str, db: Session = Depends(get_db)):
+    """Get extension details."""
+    ext = db.query(Extension).filter(Extension.id == extension_id).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    return ExtensionInfo(
+        id=ext.id,
+        name=ext.name,
+        version=ext.version,
+        description=ext.description,
+        status=ext.status,
+        has_backend=ext.has_backend or False,
+        has_frontend=ext.has_frontend or False,
+        manifest=ExtensionManifest(**ext.manifest),
+        created_at=ext.created_at,
+        updated_at=ext.updated_at
+    )
+
+
+EXTENSIONS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@app.on_event("startup")
+async def load_enabled_extensions():
+    """Load backend code for all enabled extensions on startup."""
+    from ..db.database import SessionLocal
+    db = SessionLocal()
+    try:
+        extensions = db.query(Extension).filter(
+            Extension.status == "enabled",
+            Extension.has_backend == True
+        ).all()
+        
+        for ext in extensions:
+            if ext.manifest.get("backend_entry"):
+                success, msg = extension_manager.load_backend(
+                    ext.id, ext.name, ext.version, ext.manifest["backend_entry"]
+                )
+                if success:
+                    print(f"Loaded extension backend: {ext.name}")
+                else:
+                    print(f"Failed to load extension {ext.name}: {msg}")
+    finally:
+        db.close()

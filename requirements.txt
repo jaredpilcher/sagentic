@@ -12,3 +12,5 @@ alembic
 asyncpg
 redis
 requests
+python-multipart
+tarsafe
