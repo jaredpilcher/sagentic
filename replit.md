@@ -154,19 +154,25 @@ See `example-extensions/agent-metrics/` for a complete example that adds:
 
 ## Customizable Dashboard
 
-The dashboard supports user-customizable widgets with drag-and-drop:
+The dashboard supports user-customizable widgets with drag-and-drop and responsive design:
 
 ### Built-in Widgets
 - **Metrics**: Total Runs, Completed, Failed, Avg Latency, Total Cost, Tokens, Graphs, Nodes
 - **Data**: Recent Runs list with status, timing, and token info
 
-### Widget Customization
+### Widget Customization (Desktop)
 - Click **Add Widget** to open the widget library and add widgets
 - Click **Edit** to enter edit mode where you can:
   - Drag widgets to rearrange them
   - Resize widgets by dragging edges
   - Remove widgets by clicking the X button
 - Click **Reset** to restore the default layout
+
+### Responsive Design
+The dashboard automatically adapts to different screen sizes:
+- **Desktop (>1200px)**: 12-column grid, side-by-side widgets
+- **Tablet (768-1200px)**: 6-10 column grid with adjusted layout
+- **Mobile (<768px)**: Single-column layout with full-width widgets, optimized for readability
 
 ### Extension Widgets
 Extensions can contribute widgets to the library via the `contributes.dashboard_widgets` manifest section. Extension widgets appear in the widget library under "Extensions" category.

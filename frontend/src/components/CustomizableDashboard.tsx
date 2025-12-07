@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import GridLayout from 'react-grid-layout'
-import type { Layout } from 'react-grid-layout'
+import { Responsive, WidthProvider } from 'react-grid-layout'
+import type { Layout, Layouts } from 'react-grid-layout'
 import { Plus, X, Settings, RotateCcw, GripVertical, BarChart3, RefreshCw } from 'lucide-react'
 import axios from 'axios'
 import 'react-grid-layout/css/styles.css'
@@ -19,6 +19,8 @@ import MetricWidget from './widgets/MetricWidget'
 import RecentRunsWidget from './widgets/RecentRunsWidget'
 import ExtensionWidget from './ExtensionWidget'
 
+const ResponsiveGridLayout = WidthProvider(Responsive)
+
 interface Run {
     id: string
     graph_id: string | null
@@ -35,6 +37,9 @@ interface Run {
     error: string | null
 }
 
+const breakpoints = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }
+const cols = { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }
+
 export default function CustomizableDashboard() {
     const [config, setConfig] = useState<DashboardConfig>(loadDashboardConfig)
     const [isEditing, setIsEditing] = useState(false)
@@ -42,7 +47,7 @@ export default function CustomizableDashboard() {
     const [runs, setRuns] = useState<Run[]>([])
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
-    const [containerWidth, setContainerWidth] = useState(1200)
+    const [currentBreakpoint, setCurrentBreakpoint] = useState('lg')
     
     const { getDashboardWidgets } = useExtensions()
     const extensionWidgetContributions = getDashboardWidgets()
@@ -56,9 +61,9 @@ export default function CustomizableDashboard() {
             category: 'extension' as const,
             defaultSize: { 
                 w: w.width === 'large' ? 6 : w.width === 'medium' ? 4 : 2, 
-                h: w.height === 'large' ? 6 : w.height === 'medium' ? 4 : 2 
+                h: w.height === 'large' ? 6 : w.height === 'medium' ? 4 : 3 
             },
-            minSize: { w: 2, h: 2 },
+            minSize: { w: 2, h: 3 },
             component: 'ExtensionWidget',
             extensionName: w.extensionName,
             extensionApiBaseUrl: w.apiBaseUrl
@@ -80,18 +85,6 @@ export default function CustomizableDashboard() {
             saveDashboardConfig(newConfig)
         }
     }, [extensionWidgets])
-
-    useEffect(() => {
-        const handleResize = () => {
-            const container = document.getElementById('dashboard-container')
-            if (container) {
-                setContainerWidth(container.offsetWidth)
-            }
-        }
-        handleResize()
-        window.addEventListener('resize', handleResize)
-        return () => window.removeEventListener('resize', handleResize)
-    }, [])
 
     const fetchRuns = (isRefresh = false) => {
         if (isRefresh) setRefreshing(true)
@@ -131,23 +124,102 @@ export default function CustomizableDashboard() {
         'total-nodes': { value: totalNodes }
     }
 
-    const onLayoutChange = (layout: Layout[]) => {
-        const updatedWidgets = config.widgets.map(widget => {
-            const layoutItem = layout.find(l => l.i === widget.id)
-            if (layoutItem) {
-                return {
-                    ...widget,
-                    x: layoutItem.x,
-                    y: layoutItem.y,
-                    w: layoutItem.w,
-                    h: layoutItem.h
-                }
-            }
-            return widget
+    const generateResponsiveLayouts = (): Layouts => {
+        const layouts: Layouts = { lg: [], md: [], sm: [], xs: [], xxs: [] }
+        
+        let smY = 0, xsY = 0, xxsY = 0
+        
+        config.widgets.forEach((w) => {
+            const def = findWidgetDefinition(w.widgetId, extensionWidgets)
+            const minW = def?.minSize?.w || 2
+            const minH = def?.minSize?.h || 3
+            const isLargeWidget = w.widgetId === 'recent-runs' || w.widgetId.startsWith('ext:')
+            
+            const smH = isLargeWidget ? 6 : 3
+            const xsH = isLargeWidget ? 6 : 3
+            const xxsH = isLargeWidget ? 6 : 3
+            
+            layouts.lg.push({
+                i: w.id,
+                x: w.x,
+                y: w.y,
+                w: w.w,
+                h: w.h,
+                minW,
+                minH,
+                static: !isEditing
+            })
+            
+            layouts.md.push({
+                i: w.id,
+                x: Math.min(w.x, cols.md - Math.min(w.w, cols.md)),
+                y: w.y,
+                w: Math.min(w.w, cols.md),
+                h: w.h,
+                minW: Math.min(minW, cols.md),
+                minH,
+                static: !isEditing
+            })
+            
+            layouts.sm.push({
+                i: w.id,
+                x: 0,
+                y: smY,
+                w: cols.sm,
+                h: smH,
+                minW: Math.min(minW, cols.sm),
+                minH,
+                static: true
+            })
+            smY += smH
+            
+            layouts.xs.push({
+                i: w.id,
+                x: 0,
+                y: xsY,
+                w: cols.xs,
+                h: xsH,
+                minW: Math.min(minW, cols.xs),
+                minH,
+                static: true
+            })
+            xsY += xsH
+            
+            layouts.xxs.push({
+                i: w.id,
+                x: 0,
+                y: xxsY,
+                w: cols.xxs,
+                h: xxsH,
+                minW: Math.min(minW, cols.xxs),
+                minH,
+                static: true
+            })
+            xxsY += xxsH
         })
-        const newConfig = { ...config, widgets: updatedWidgets }
-        setConfig(newConfig)
-        saveDashboardConfig(newConfig)
+        
+        return layouts
+    }
+
+    const onLayoutChange = (currentLayout: Layout[], _allLayouts: Layouts) => {
+        if (currentBreakpoint === 'lg') {
+            const updatedWidgets = config.widgets.map(widget => {
+                const layoutItem = currentLayout.find(l => l.i === widget.id)
+                if (layoutItem) {
+                    return {
+                        ...widget,
+                        x: layoutItem.x,
+                        y: layoutItem.y,
+                        w: layoutItem.w,
+                        h: layoutItem.h
+                    }
+                }
+                return widget
+            })
+            const newConfig = { ...config, widgets: updatedWidgets }
+            setConfig(newConfig)
+            saveDashboardConfig(newConfig)
+        }
     }
 
     const addWidget = (widgetDef: WidgetDefinition) => {
@@ -179,20 +251,6 @@ export default function CustomizableDashboard() {
         setConfig(defaultConfig)
         saveDashboardConfig(defaultConfig)
     }
-
-    const layout: Layout[] = config.widgets.map(w => {
-        const def = findWidgetDefinition(w.widgetId, extensionWidgets)
-        return {
-            i: w.id,
-            x: w.x,
-            y: w.y,
-            w: w.w,
-            h: w.h,
-            minW: def?.minSize?.w || 1,
-            minH: def?.minSize?.h || 1,
-            static: !isEditing
-        }
-    })
 
     const renderWidget = (instance: WidgetInstance) => {
         const def = findWidgetDefinition(instance.widgetId, extensionWidgets)
@@ -236,8 +294,7 @@ export default function CustomizableDashboard() {
         return null
     }
 
-    const cols = 10
-    const rowHeight = 40
+    const rowHeight = currentBreakpoint === 'xxs' || currentBreakpoint === 'xs' ? 50 : 45
 
     return (
         <div className="space-y-4">
@@ -363,26 +420,20 @@ export default function CustomizableDashboard() {
             )}
 
             <div id="dashboard-container" className="relative">
-                {isEditing && (
-                    <div className="absolute inset-0 pointer-events-none z-0">
-                        <div className="w-full h-full opacity-5" style={{
-                            backgroundSize: `${containerWidth / cols}px ${rowHeight}px`,
-                            backgroundImage: 'linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px)'
-                        }} />
-                    </div>
-                )}
-                <GridLayout
+                <ResponsiveGridLayout
                     className="layout"
-                    layout={layout}
+                    layouts={generateResponsiveLayouts()}
+                    breakpoints={breakpoints}
                     cols={cols}
                     rowHeight={rowHeight}
-                    width={containerWidth}
                     onLayoutChange={onLayoutChange}
+                    onBreakpointChange={(newBreakpoint) => setCurrentBreakpoint(newBreakpoint)}
                     isDraggable={isEditing}
                     isResizable={isEditing}
                     draggableHandle=".widget-drag-handle"
                     compactType="vertical"
                     margin={[12, 12]}
+                    containerPadding={[0, 0]}
                 >
                     {config.widgets.map(instance => (
                         <div key={instance.id} className="relative group">
@@ -404,7 +455,7 @@ export default function CustomizableDashboard() {
                             </div>
                         </div>
                     ))}
-                </GridLayout>
+                </ResponsiveGridLayout>
             </div>
         </div>
     )

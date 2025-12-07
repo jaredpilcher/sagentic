@@ -35,8 +35,8 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
         description: 'Total number of workflow runs',
         icon: Activity,
         category: 'metrics',
-        defaultSize: { w: 2, h: 2 },
-        minSize: { w: 1, h: 2 },
+        defaultSize: { w: 2, h: 3 },
+        minSize: { w: 2, h: 3 },
         component: 'TotalRunsWidget'
     },
     {
@@ -45,8 +45,8 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
         description: 'Successfully completed runs',
         icon: CheckCircle,
         category: 'metrics',
-        defaultSize: { w: 2, h: 2 },
-        minSize: { w: 1, h: 2 },
+        defaultSize: { w: 2, h: 3 },
+        minSize: { w: 2, h: 3 },
         component: 'CompletedRunsWidget'
     },
     {
@@ -55,8 +55,8 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
         description: 'Failed workflow runs',
         icon: XCircle,
         category: 'metrics',
-        defaultSize: { w: 2, h: 2 },
-        minSize: { w: 1, h: 2 },
+        defaultSize: { w: 2, h: 3 },
+        minSize: { w: 2, h: 3 },
         component: 'FailedRunsWidget'
     },
     {
@@ -65,8 +65,8 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
         description: 'Average execution latency',
         icon: Clock,
         category: 'metrics',
-        defaultSize: { w: 2, h: 2 },
-        minSize: { w: 1, h: 2 },
+        defaultSize: { w: 2, h: 3 },
+        minSize: { w: 2, h: 3 },
         component: 'AvgLatencyWidget'
     },
     {
@@ -75,8 +75,8 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
         description: 'Cumulative API costs',
         icon: DollarSign,
         category: 'metrics',
-        defaultSize: { w: 2, h: 2 },
-        minSize: { w: 1, h: 2 },
+        defaultSize: { w: 2, h: 3 },
+        minSize: { w: 2, h: 3 },
         component: 'TotalCostWidget'
     },
     {
@@ -85,8 +85,8 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
         description: 'Total tokens consumed',
         icon: Zap,
         category: 'metrics',
-        defaultSize: { w: 2, h: 2 },
-        minSize: { w: 1, h: 2 },
+        defaultSize: { w: 2, h: 3 },
+        minSize: { w: 2, h: 3 },
         component: 'TotalTokensWidget'
     },
     {
@@ -95,8 +95,8 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
         description: 'Unique graph definitions',
         icon: Bot,
         category: 'metrics',
-        defaultSize: { w: 2, h: 2 },
-        minSize: { w: 1, h: 2 },
+        defaultSize: { w: 2, h: 3 },
+        minSize: { w: 2, h: 3 },
         component: 'UniqueGraphsWidget'
     },
     {
@@ -105,8 +105,8 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
         description: 'Total node executions',
         icon: Activity,
         category: 'metrics',
-        defaultSize: { w: 2, h: 2 },
-        minSize: { w: 1, h: 2 },
+        defaultSize: { w: 2, h: 3 },
+        minSize: { w: 2, h: 3 },
         component: 'TotalNodesWidget'
     },
     {
@@ -125,17 +125,17 @@ const STORAGE_KEY = 'sagentic-dashboard-config'
 
 export function getDefaultDashboardConfig(): DashboardConfig {
     return {
-        version: 1,
+        version: 2,
         widgets: [
-            { id: 'w1', widgetId: 'total-runs', x: 0, y: 0, w: 2, h: 2 },
-            { id: 'w2', widgetId: 'completed-runs', x: 2, y: 0, w: 2, h: 2 },
-            { id: 'w3', widgetId: 'failed-runs', x: 4, y: 0, w: 2, h: 2 },
-            { id: 'w4', widgetId: 'avg-latency', x: 6, y: 0, w: 2, h: 2 },
-            { id: 'w5', widgetId: 'total-cost', x: 8, y: 0, w: 2, h: 2 },
-            { id: 'w6', widgetId: 'total-tokens', x: 0, y: 2, w: 2, h: 2 },
-            { id: 'w7', widgetId: 'unique-graphs', x: 2, y: 2, w: 2, h: 2 },
-            { id: 'w8', widgetId: 'total-nodes', x: 4, y: 2, w: 2, h: 2 },
-            { id: 'w9', widgetId: 'recent-runs', x: 0, y: 4, w: 10, h: 6 }
+            { id: 'w1', widgetId: 'total-runs', x: 0, y: 0, w: 2, h: 3 },
+            { id: 'w2', widgetId: 'completed-runs', x: 2, y: 0, w: 2, h: 3 },
+            { id: 'w3', widgetId: 'failed-runs', x: 4, y: 0, w: 2, h: 3 },
+            { id: 'w4', widgetId: 'avg-latency', x: 6, y: 0, w: 2, h: 3 },
+            { id: 'w5', widgetId: 'total-cost', x: 8, y: 0, w: 2, h: 3 },
+            { id: 'w6', widgetId: 'total-tokens', x: 10, y: 0, w: 2, h: 3 },
+            { id: 'w7', widgetId: 'unique-graphs', x: 0, y: 3, w: 2, h: 3 },
+            { id: 'w8', widgetId: 'total-nodes', x: 2, y: 3, w: 2, h: 3 },
+            { id: 'w9', widgetId: 'recent-runs', x: 4, y: 3, w: 8, h: 7 }
         ]
     }
 }
@@ -145,6 +145,9 @@ export function loadDashboardConfig(): DashboardConfig {
         const saved = localStorage.getItem(STORAGE_KEY)
         if (saved) {
             const config = JSON.parse(saved) as DashboardConfig
+            if (config.version < 2) {
+                return getDefaultDashboardConfig()
+            }
             return config
         }
     } catch (e) {
