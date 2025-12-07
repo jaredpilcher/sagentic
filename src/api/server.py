@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 
-from .routers import runs, traces, extensions
+from .routers import runs, traces, extensions, agents
 # Future: from .routers import agents, data
 
 from ..db.database import init_db, SessionLocal
@@ -76,7 +76,7 @@ app.add_middleware(
 app.include_router(runs.router)
 app.include_router(traces.router)
 app.include_router(extensions.router)
-# app.include_router(agents.router) # TODO
+app.include_router(agents.router)
 
 # --- Static ---
 # Serve frontend if built
