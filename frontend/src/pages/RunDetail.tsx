@@ -5,6 +5,7 @@ import { ArrowLeft, Clock, Zap, DollarSign, CheckCircle, XCircle, ChevronDown, C
 import { motion, AnimatePresence } from 'framer-motion'
 import { formatDistanceToNow, format } from 'date-fns'
 import { useExtensions } from '../lib/extensions'
+import type { RunActionContribution } from '../lib/extension-types'
 
 const actionIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
     BarChart3, Settings, Shield, Zap, Activity, Check
@@ -22,8 +23,8 @@ interface Message {
     total_tokens: number | null
     cost: number | null
     latency_ms: number | null
-    tool_calls: any[] | null
-    tool_results: any[] | null
+    tool_calls: unknown[] | null
+    tool_results: unknown[] | null
 }
 
 interface NodeExecution {
@@ -35,9 +36,9 @@ interface NodeExecution {
     started_at: string | null
     ended_at: string | null
     latency_ms: number | null
-    state_in: Record<string, any> | null
-    state_out: Record<string, any> | null
-    state_diff: { added: Record<string, any>; removed: Record<string, any>; modified: Record<string, any> } | null
+    state_in: Record<string, unknown> | null
+    state_out: Record<string, unknown> | null
+    state_diff: { added: Record<string, unknown>; removed: Record<string, unknown>; modified: Record<string, unknown> } | null
     error: string | null
     messages: Message[]
 }
@@ -59,14 +60,14 @@ interface RunDetail {
     status: string
     started_at: string
     ended_at: string | null
-    input_state: Record<string, any> | null
-    output_state: Record<string, any> | null
+    input_state: Record<string, unknown> | null
+    output_state: Record<string, unknown> | null
     total_tokens: number
     total_cost: number
     total_latency_ms: number
     error: string | null
     tags: string[] | null
-    run_metadata: Record<string, any> | null
+    run_metadata: Record<string, unknown> | null
     nodes: NodeExecution[]
     edges: Edge[]
 }
@@ -78,21 +79,25 @@ export default function RunDetailPage() {
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
     const [activeTab, setActiveTab] = useState<'timeline' | 'graph'>('timeline')
     const [nodeStateView, setNodeStateView] = useState<Record<string, 'changes' | 'full'>>({})
-    
+
     const getNodeStateView = (nodeId: string) => nodeStateView[nodeId] || 'changes'
     const setNodeStateViewTab = (nodeId: string, view: 'changes' | 'full') => {
         setNodeStateView(prev => ({ ...prev, [nodeId]: view }))
     }
     const [copied, setCopied] = useState(false)
     const { getRunActions, openModal } = useExtensions()
-    
+
     const runActions = getRunActions()
-    
+
     const handleAction = (action: typeof runActions[0]) => {
         if (action.actionType === 'modal' && action.modal) {
-            openModal(action.extensionName, action.modal, {
-                run_id: runId,
-                graph_id: run?.graph_id
+            openModal({
+                extensionName: action.extensionName,
+                modalId: action.modal,
+                context: {
+                    run_id: runId,
+                    graph_id: run?.graph_id
+                }
             })
         }
     }
@@ -147,7 +152,7 @@ export default function RunDetailPage() {
         )
     }
 
-    const duration = run.ended_at && run.started_at 
+    const duration = run.ended_at && run.started_at
         ? Math.round((new Date(run.ended_at).getTime() - new Date(run.started_at).getTime()))
         : null
 
@@ -161,8 +166,8 @@ export default function RunDetailPage() {
 
     return (
         <div className="space-y-4 md:space-y-6">
-            <Link 
-                to="/runs" 
+            <Link
+                to="/runs"
                 className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm"
             >
                 <ArrowLeft className="w-4 h-4" />
@@ -174,7 +179,7 @@ export default function RunDetailPage() {
                     <div className="space-y-3">
                         <div className="flex items-center gap-3">
                             {run.graph_id ? (
-                                <Link 
+                                <Link
                                     to={`/agents/${encodeURIComponent(run.graph_id)}`}
                                     className="flex items-center gap-2 hover:text-primary transition-colors group"
                                 >
@@ -199,20 +204,20 @@ export default function RunDetailPage() {
                                 </div>
                             )}
                         </div>
-                        
+
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-                            <button 
+                            <button
                                 onClick={copyRunId}
                                 className="font-mono text-xs text-muted-foreground flex items-center gap-1.5 hover:text-foreground transition-colors bg-accent/50 px-2 py-1 rounded"
                             >
                                 <span className="truncate max-w-[180px] md:max-w-[300px]">{run.id}</span>
                                 {copied ? <Check className="w-3 h-3 text-green-500 flex-shrink-0" /> : <Copy className="w-3 h-3 flex-shrink-0" />}
                             </button>
-                            
+
                             <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-accent text-muted-foreground">
                                 {run.framework}
                             </span>
-                            
+
                             {run.graph_version && (
                                 <span className="text-xs text-muted-foreground">
                                     v{run.graph_version}
@@ -252,14 +257,14 @@ export default function RunDetailPage() {
                                 ({formatDistanceToNow(new Date(run.started_at), { addSuffix: true })})
                             </span>
                         </div>
-                        
+
                         {duration !== null && (
                             <div className="flex items-center gap-2">
                                 <Clock className="w-4 h-4" />
                                 <span>Duration: {formatDuration(duration)}</span>
                             </div>
                         )}
-                        
+
                         <div className="flex items-center gap-2">
                             <GitBranch className="w-4 h-4" />
                             <span>{run.nodes.length} nodes</span>
@@ -377,9 +382,9 @@ export default function RunDetailPage() {
             {runActions.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                     <span className="text-xs text-muted-foreground self-center mr-1">Extensions:</span>
-                    {runActions.map(action => {
+                    {runActions.map((action: RunActionContribution & { extensionName: string; extensionId: string; apiBaseUrl: string }) => {
                         const Icon = actionIconMap[action.icon || 'Zap'] || Zap
-                        
+
                         if (action.actionType === 'modal' && action.modal) {
                             return (
                                 <button
@@ -392,7 +397,7 @@ export default function RunDetailPage() {
                                 </button>
                             )
                         }
-                        
+
                         const targetPath = action.navigateTo || `/extensions/${action.extensionName}`
                         return (
                             <Link
@@ -411,21 +416,19 @@ export default function RunDetailPage() {
             <div className="flex gap-1 p-1 bg-accent/50 rounded-xl w-fit">
                 <button
                     onClick={() => setActiveTab('timeline')}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all active:scale-[0.98] ${
-                        activeTab === 'timeline'
-                            ? 'bg-card text-foreground shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground'
-                    }`}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all active:scale-[0.98] ${activeTab === 'timeline'
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                        }`}
                 >
                     Timeline
                 </button>
                 <button
                     onClick={() => setActiveTab('graph')}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all active:scale-[0.98] ${
-                        activeTab === 'graph'
-                            ? 'bg-card text-foreground shadow-sm'
-                            : 'text-muted-foreground hover:text-foreground'
-                    }`}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all active:scale-[0.98] ${activeTab === 'graph'
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                        }`}
                 >
                     Graph
                 </button>
@@ -494,31 +497,29 @@ export default function RunDetailPage() {
                                                         <div className="flex gap-1 p-0.5 bg-accent/50 rounded-lg">
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); setNodeStateViewTab(node.id, 'changes') }}
-                                                                className={`px-2 py-1 text-xs font-medium rounded transition-all ${
-                                                                    getNodeStateView(node.id) === 'changes'
-                                                                        ? 'bg-card text-foreground shadow-sm'
-                                                                        : 'text-muted-foreground hover:text-foreground'
-                                                                }`}
+                                                                className={`px-2 py-1 text-xs font-medium rounded transition-all ${getNodeStateView(node.id) === 'changes'
+                                                                    ? 'bg-card text-foreground shadow-sm'
+                                                                    : 'text-muted-foreground hover:text-foreground'
+                                                                    }`}
                                                             >
                                                                 Changes
                                                             </button>
                                                             <button
                                                                 onClick={(e) => { e.stopPropagation(); setNodeStateViewTab(node.id, 'full') }}
-                                                                className={`px-2 py-1 text-xs font-medium rounded transition-all ${
-                                                                    getNodeStateView(node.id) === 'full'
-                                                                        ? 'bg-card text-foreground shadow-sm'
-                                                                        : 'text-muted-foreground hover:text-foreground'
-                                                                }`}
+                                                                className={`px-2 py-1 text-xs font-medium rounded transition-all ${getNodeStateView(node.id) === 'full'
+                                                                    ? 'bg-card text-foreground shadow-sm'
+                                                                    : 'text-muted-foreground hover:text-foreground'
+                                                                    }`}
                                                             >
                                                                 Full State
                                                             </button>
                                                         </div>
                                                     </div>
-                                                    
+
                                                     {getNodeStateView(node.id) === 'changes' ? (
                                                         <div className="space-y-2">
-                                                            {node.state_diff && (Object.keys(node.state_diff.added).length > 0 || 
-                                                                Object.keys(node.state_diff.removed).length > 0 || 
+                                                            {node.state_diff && (Object.keys(node.state_diff.added).length > 0 ||
+                                                                Object.keys(node.state_diff.removed).length > 0 ||
                                                                 Object.keys(node.state_diff.modified).length > 0) ? (
                                                                 <>
                                                                     {Object.keys(node.state_diff.added).length > 0 && (
@@ -584,15 +585,14 @@ export default function RunDetailPage() {
                                                         {node.messages.map((msg) => (
                                                             <div
                                                                 key={msg.id}
-                                                                className={`p-3 rounded-lg ${
-                                                                    msg.role === 'assistant'
-                                                                        ? 'bg-primary/5 border border-primary/20'
-                                                                        : msg.role === 'user'
+                                                                className={`p-3 rounded-lg ${msg.role === 'assistant'
+                                                                    ? 'bg-primary/5 border border-primary/20'
+                                                                    : msg.role === 'user'
                                                                         ? 'bg-accent/50'
                                                                         : msg.role === 'system'
-                                                                        ? 'bg-yellow-500/5 border border-yellow-500/20'
-                                                                        : 'bg-accent'
-                                                                }`}
+                                                                            ? 'bg-yellow-500/5 border border-yellow-500/20'
+                                                                            : 'bg-accent'
+                                                                    }`}
                                                             >
                                                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2">
                                                                     <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -607,11 +607,14 @@ export default function RunDetailPage() {
                                                                 <div className="text-sm whitespace-pre-wrap break-words">
                                                                     {msg.content || (msg.tool_calls ? (
                                                                         <div className="space-y-1">
-                                                                            {msg.tool_calls.map((tc, i) => (
-                                                                                <div key={i} className="font-mono text-xs bg-background/50 p-2 rounded break-all">
-                                                                                    Tool: {tc.name || tc.function?.name || 'unknown'}
-                                                                                </div>
-                                                                            ))}
+                                                                            {msg.tool_calls.map((tc, i) => {
+                                                                                const tool = tc as { name?: string; function?: { name?: string } }
+                                                                                return (
+                                                                                    <div key={i} className="font-mono text-xs bg-background/50 p-2 rounded break-all">
+                                                                                        Tool: {tool.name || tool.function?.name || 'unknown'}
+                                                                                    </div>
+                                                                                )
+                                                                            })}
                                                                         </div>
                                                                     ) : 'No content')}
                                                                 </div>
@@ -647,11 +650,10 @@ export default function RunDetailPage() {
                             {run.nodes.map((node, index) => (
                                 <div key={node.id} className="flex items-center gap-2">
                                     <div
-                                        className={`px-3 md:px-4 py-2 rounded-lg border-2 ${
-                                            node.status === 'failed'
-                                                ? 'border-red-500 bg-red-500/10'
-                                                : 'border-primary bg-primary/10'
-                                        }`}
+                                        className={`px-3 md:px-4 py-2 rounded-lg border-2 ${node.status === 'failed'
+                                            ? 'border-red-500 bg-red-500/10'
+                                            : 'border-primary bg-primary/10'
+                                            }`}
                                     >
                                         <div className="font-medium text-xs md:text-sm whitespace-nowrap">{node.node_key}</div>
                                         <div className="text-xs text-muted-foreground">{node.latency_ms}ms</div>

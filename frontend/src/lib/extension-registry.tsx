@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import type { ExtensionManifest, SidebarPanelContribution, DashboardWidgetContribution, RunActionContribution, AgentActionContribution, ExtensionPageContribution, ExtensionModalContribution } from './extension-types'
 
@@ -41,11 +42,7 @@ export function ExtensionRegistryProvider({ children }: { children: ReactNode })
         refresh()
     }, [refresh])
 
-    // ... Helper functions (logic extracted from original file)
-    // For brevity, I'm assuming the helper logic is similar but slightly cleaner
-    // I'll implement one for demonstration of the pattern
-
-    const attachMeta = (item: any, ext: ExtensionManifest) => ({
+    const attachMeta = <T extends Record<string, unknown>>(item: T, ext: ExtensionManifest) => ({
         ...item,
         extensionId: ext.id,
         extensionName: ext.name,
@@ -54,44 +51,44 @@ export function ExtensionRegistryProvider({ children }: { children: ReactNode })
 
     const getSidebarPanels = useCallback(() => {
         return extensions.flatMap(ext =>
-            (ext.contributes?.sidebar_panels || []).map(p => attachMeta(p, ext))
-        ).sort((a, b) => (a.priority || 100) - (b.priority || 100))
+            (ext.contributes?.sidebar_panels || []).map(p => attachMeta(p as unknown as Record<string, unknown>, ext))
+        ).sort((a, b) => (Number(a.priority) || 100) - (Number(b.priority) || 100)) as unknown as Array<SidebarPanelContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
     }, [extensions])
 
     const getDashboardWidgets = useCallback(() => {
         return extensions.flatMap(ext =>
-            (ext.contributes?.dashboard_widgets || []).map(w => attachMeta(w, ext))
-        ).sort((a, b) => (a.priority || 100) - (b.priority || 100))
+            (ext.contributes?.dashboard_widgets || []).map(w => attachMeta(w as unknown as Record<string, unknown>, ext))
+        ).sort((a, b) => (Number(a.priority) || 100) - (Number(b.priority) || 100)) as unknown as Array<DashboardWidgetContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
     }, [extensions])
 
     const getRunActions = useCallback(() => {
         return extensions.flatMap(ext =>
-            (ext.contributes?.run_actions || []).map(a => attachMeta(a, ext))
-        )
+            (ext.contributes?.run_actions || []).map(a => attachMeta(a as unknown as Record<string, unknown>, ext))
+        ) as unknown as Array<RunActionContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
     }, [extensions])
 
     const getAgentActions = useCallback(() => {
         return extensions.flatMap(ext =>
-            (ext.contributes?.agent_actions || []).map(a => attachMeta(a, ext))
-        )
+            (ext.contributes?.agent_actions || []).map(a => attachMeta(a as unknown as Record<string, unknown>, ext))
+        ) as unknown as Array<AgentActionContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
     }, [extensions])
 
     const getExtensionPages = useCallback((extensionName: string) => {
         const ext = extensions.find(e => e.name === extensionName)
         if (!ext) return []
-        return (ext.contributes?.pages || []).map(p => attachMeta(p, ext))
+        return (ext.contributes?.pages || []).map(p => attachMeta(p as unknown as Record<string, unknown>, ext)) as unknown as Array<ExtensionPageContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
     }, [extensions])
 
     const getExtensionModals = useCallback((extensionName: string) => {
         const ext = extensions.find(e => e.name === extensionName)
         if (!ext) return []
-        return (ext.contributes?.modals || []).map(m => attachMeta(m, ext))
+        return (ext.contributes?.modals || []).map(m => attachMeta(m as unknown as Record<string, unknown>, ext)) as unknown as Array<ExtensionModalContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
     }, [extensions])
 
     const getAllPages = useCallback(() => {
         return extensions.flatMap(ext =>
-            (ext.contributes?.pages || []).map(p => attachMeta(p, ext))
-        )
+            (ext.contributes?.pages || []).map(p => attachMeta(p as unknown as Record<string, unknown>, ext))
+        ) as unknown as Array<ExtensionPageContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
     }, [extensions])
 
     return (

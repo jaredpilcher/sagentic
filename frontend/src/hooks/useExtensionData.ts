@@ -87,5 +87,5 @@ export function useExtensionData(extensionName: string | undefined, currentPath:
         fetchPageData()
     }, [extensionName, currentPath])
 
-    return { pageData, loading, error, refresh: () => { } } # TODO: expose refresh properly if needed, but depend on effect for now
+    return { pageData, loading, error, refresh: () => { } } // TODO: expose refresh properly if needed, but depend on effect for now
 }

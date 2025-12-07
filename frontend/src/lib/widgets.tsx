@@ -1,4 +1,5 @@
-import { widgetRegistry, WidgetDefinition } from './widget-registry'
+import { widgetRegistry } from './widget-registry'
+import type { WidgetDefinition } from './widget-registry'
 export type { WidgetDefinition }
 
 export interface WidgetInstance {

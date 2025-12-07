@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { LayoutDashboard, MessageSquare, Activity, Menu, X, Package, BarChart3, Settings, Zap, Database, FileText, Users, Shield, History, Bot } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useExtensions } from '../lib/extensions'
+import type { SidebarPanelContribution } from '../lib/extension-types'
 
 const getIsMobile = () => typeof window !== 'undefined' && window.innerWidth < 768
 
@@ -27,13 +28,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }, [])
 
     useEffect(() => {
-        setSidebarOpen(false)
+        const t = setTimeout(() => setSidebarOpen(false), 0)
+        return () => clearTimeout(t)
     }, [location.pathname])
 
     return (
         <div className="min-h-screen bg-background font-sans antialiased">
             {isMobile && sidebarOpen && (
-                <div 
+                <div
                     className="fixed inset-0 bg-black/50 z-40 md:hidden"
                     onClick={() => setSidebarOpen(false)}
                 />
@@ -41,7 +43,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             <aside className={cn(
                 "fixed h-full z-50 bg-card/95 backdrop-blur-xl border-r border-border transition-transform duration-300 ease-in-out",
-                isMobile 
+                isMobile
                     ? sidebarOpen ? "translate-x-0 w-72" : "-translate-x-full w-72"
                     : "translate-x-0 w-64"
             )}>
@@ -53,7 +55,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         <p className="text-xs text-muted-foreground mt-0.5">LangGraph Observability</p>
                     </div>
                     {isMobile && (
-                        <button 
+                        <button
                             onClick={() => setSidebarOpen(false)}
                             className="p-2 hover:bg-accent rounded-lg transition-colors"
                         >
@@ -66,7 +68,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <NavItem to="/agents" icon={Bot} label="Agents" />
                     <NavItem to="/runs" icon={History} label="All Runs" />
                     <NavItem to="/evaluations" icon={MessageSquare} label="Evaluations" />
-                    
+
                     {extensionPanels.length > 0 && (
                         <div className="pt-4 pb-2">
                             <div className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -74,19 +76,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                             </div>
                         </div>
                     )}
-                    
-                    {extensionPanels.map(panel => {
+
+                    {extensionPanels.map((panel: SidebarPanelContribution & { extensionId: string; extensionName: string }) => {
                         const Icon = iconMap[panel.icon || 'Package'] || Package
                         return (
-                            <NavItem 
+                            <NavItem
                                 key={`${panel.extensionId}-${panel.id}`}
-                                to={`/extensions/${panel.extensionName}`} 
-                                icon={Icon} 
-                                label={panel.title} 
+                                to={`/extensions/${panel.extensionName}`}
+                                icon={Icon}
+                                label={panel.title}
                             />
                         )
                     })}
-                    
+
                     <div className="pt-4 pb-2">
                         <div className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                             System
@@ -104,7 +106,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             {isMobile && (
                 <header className="fixed top-0 left-0 right-0 h-14 bg-card/95 backdrop-blur-xl border-b border-border z-30 flex items-center px-4 gap-3">
-                    <button 
+                    <button
                         onClick={() => setSidebarOpen(true)}
                         className="p-2 -ml-2 hover:bg-accent rounded-lg transition-colors"
                     >
@@ -137,7 +139,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     )
 }
 
-function NavItem({ to, icon: Icon, label }: { to: string; icon: any; label: string }) {
+function NavItem({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string }) {
     const location = useLocation()
     const isActive = location.pathname === to
 
@@ -157,7 +159,7 @@ function NavItem({ to, icon: Icon, label }: { to: string; icon: any; label: stri
     )
 }
 
-function MobileNavItem({ to, icon: Icon, label }: { to: string; icon: any; label: string }) {
+function MobileNavItem({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string }) {
     const location = useLocation()
     const isActive = location.pathname === to
 

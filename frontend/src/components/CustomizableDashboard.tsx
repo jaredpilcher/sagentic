@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Responsive, WidthProvider } from 'react-grid-layout'
 import type { Layout, Layouts } from 'react-grid-layout'
 import { Plus, X, Settings, RotateCcw, GripVertical, BarChart3, RefreshCw } from 'lucide-react'
@@ -7,6 +7,7 @@ import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import { useExtensions } from '../lib/extensions'
 import type { WidgetDefinition, WidgetInstance, DashboardConfig } from '../lib/widgets'
+import type { DashboardWidgetContribution } from '../lib/extension-types'
 import {
     BUILT_IN_WIDGETS,
     loadDashboardConfig,
@@ -48,20 +49,20 @@ export default function CustomizableDashboard() {
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [currentBreakpoint, setCurrentBreakpoint] = useState('lg')
-    
+
     const { getDashboardWidgets } = useExtensions()
     const extensionWidgetContributions = getDashboardWidgets()
 
     const extensionWidgets: WidgetDefinition[] = useMemo(() => {
-        return extensionWidgetContributions.map(w => ({
+        return extensionWidgetContributions.map((w: DashboardWidgetContribution & { extensionId: string; extensionName: string; id: string; title: string; description?: string; width?: string; height?: string; apiBaseUrl: string }) => ({
             id: `ext:${w.extensionName}:${w.id}`,
             title: w.title,
             description: w.description || `Widget from ${w.extensionName}`,
             icon: BarChart3,
             category: 'extension' as const,
-            defaultSize: { 
-                w: w.width === 'large' ? 6 : w.width === 'medium' ? 4 : 2, 
-                h: w.height === 'large' ? 6 : w.height === 'medium' ? 4 : 3 
+            defaultSize: {
+                w: w.width === 'large' ? 6 : w.width === 'medium' ? 4 : 2,
+                h: w.height === 'large' ? 6 : w.height === 'medium' ? 4 : 3
             },
             minSize: { w: 2, h: 3 },
             component: 'ExtensionWidget',
@@ -78,18 +79,20 @@ export default function CustomizableDashboard() {
             }
             return findWidgetDefinition(w.widgetId, []) !== undefined
         })
-        
+
         if (validWidgets.length !== config.widgets.length) {
             const newConfig = { ...config, widgets: validWidgets }
-            setConfig(newConfig)
-            saveDashboardConfig(newConfig)
+            setTimeout(() => {
+                setConfig(newConfig)
+                saveDashboardConfig(newConfig)
+            }, 0)
         }
-    }, [extensionWidgets])
+    }, [extensionWidgets, config])
 
-    const fetchRuns = (isRefresh = false) => {
+    const fetchRuns = useCallback((isRefresh = false) => {
         if (isRefresh) setRefreshing(true)
         else setLoading(true)
-        
+
         axios.get('/api/runs', { params: { limit: 100 } })
             .then(res => setRuns(res.data))
             .catch(err => console.error(err))
@@ -97,17 +100,18 @@ export default function CustomizableDashboard() {
                 setLoading(false)
                 setRefreshing(false)
             })
-    }
+    }, [])
 
     useEffect(() => {
-        fetchRuns()
-    }, [])
+        const t = setTimeout(() => fetchRuns(), 0)
+        return () => clearTimeout(t)
+    }, [fetchRuns])
 
     const completedRuns = runs.filter(r => r.status === 'completed').length
     const failedRuns = runs.filter(r => r.status === 'failed').length
     const totalTokens = runs.reduce((acc, r) => acc + (r.total_tokens || 0), 0)
     const totalCost = runs.reduce((acc, r) => acc + (r.total_cost || 0), 0)
-    const avgLatency = runs.length > 0 
+    const avgLatency = runs.length > 0
         ? Math.round(runs.reduce((acc, r) => acc + (r.total_latency_ms || 0), 0) / runs.length)
         : 0
     const uniqueGraphs = new Set(runs.map(r => r.graph_id).filter(Boolean)).size
@@ -126,19 +130,19 @@ export default function CustomizableDashboard() {
 
     const generateResponsiveLayouts = (): Layouts => {
         const layouts: Layouts = { lg: [], md: [], sm: [], xs: [], xxs: [] }
-        
+
         let smY = 0, xsY = 0, xxsY = 0
-        
+
         config.widgets.forEach((w) => {
             const def = findWidgetDefinition(w.widgetId, extensionWidgets)
             const minW = def?.minSize?.w || 2
             const minH = def?.minSize?.h || 3
             const isLargeWidget = w.widgetId === 'recent-runs' || w.widgetId.startsWith('ext:')
-            
+
             const smH = isLargeWidget ? 6 : 3
             const xsH = isLargeWidget ? 6 : 3
             const xxsH = isLargeWidget ? 6 : 3
-            
+
             layouts.lg.push({
                 i: w.id,
                 x: w.x,
@@ -149,7 +153,7 @@ export default function CustomizableDashboard() {
                 minH,
                 static: !isEditing
             })
-            
+
             layouts.md.push({
                 i: w.id,
                 x: Math.min(w.x, cols.md - Math.min(w.w, cols.md)),
@@ -160,7 +164,7 @@ export default function CustomizableDashboard() {
                 minH,
                 static: !isEditing
             })
-            
+
             layouts.sm.push({
                 i: w.id,
                 x: 0,
@@ -172,7 +176,7 @@ export default function CustomizableDashboard() {
                 static: true
             })
             smY += smH
-            
+
             layouts.xs.push({
                 i: w.id,
                 x: 0,
@@ -184,7 +188,7 @@ export default function CustomizableDashboard() {
                 static: true
             })
             xsY += xsH
-            
+
             layouts.xxs.push({
                 i: w.id,
                 x: 0,
@@ -197,11 +201,11 @@ export default function CustomizableDashboard() {
             })
             xxsY += xxsH
         })
-        
+
         return layouts
     }
 
-    const onLayoutChange = (currentLayout: Layout[], _allLayouts: Layouts) => {
+    const onLayoutChange = (currentLayout: Layout[]) => {
         if (currentBreakpoint === 'lg') {
             const updatedWidgets = config.widgets.map(widget => {
                 const layoutItem = currentLayout.find(l => l.i === widget.id)
@@ -238,9 +242,9 @@ export default function CustomizableDashboard() {
     }
 
     const removeWidget = (instanceId: string) => {
-        const newConfig = { 
-            ...config, 
-            widgets: config.widgets.filter(w => w.id !== instanceId) 
+        const newConfig = {
+            ...config,
+            widgets: config.widgets.filter(w => w.id !== instanceId)
         }
         setConfig(newConfig)
         saveDashboardConfig(newConfig)
@@ -258,7 +262,7 @@ export default function CustomizableDashboard() {
 
         if (def.component === 'ExtensionWidget' && def.extensionName) {
             const extWidget = extensionWidgetContributions.find(
-                w => `ext:${w.extensionName}:${w.id}` === instance.widgetId
+                (w: DashboardWidgetContribution & { extensionName: string; id: string; apiBaseUrl: string }) => `ext:${w.extensionName}:${w.id}` === instance.widgetId
             )
             if (extWidget) {
                 return (
@@ -306,7 +310,7 @@ export default function CustomizableDashboard() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button 
+                    <button
                         onClick={() => fetchRuns(true)}
                         disabled={refreshing}
                         className="flex items-center justify-center gap-2 px-3 py-2 bg-accent hover:bg-accent/80 rounded-lg transition-colors disabled:opacity-50"
@@ -316,9 +320,8 @@ export default function CustomizableDashboard() {
                     </button>
                     <button
                         onClick={() => setShowLibrary(!showLibrary)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                            showLibrary ? 'bg-primary text-primary-foreground' : 'bg-accent hover:bg-accent/80'
-                        }`}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${showLibrary ? 'bg-primary text-primary-foreground' : 'bg-accent hover:bg-accent/80'
+                            }`}
                         title="Add widgets"
                     >
                         <Plus className="w-4 h-4" />
@@ -326,9 +329,8 @@ export default function CustomizableDashboard() {
                     </button>
                     <button
                         onClick={() => setIsEditing(!isEditing)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                            isEditing ? 'bg-primary text-primary-foreground' : 'bg-accent hover:bg-accent/80'
-                        }`}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${isEditing ? 'bg-primary text-primary-foreground' : 'bg-accent hover:bg-accent/80'
+                            }`}
                         title="Edit layout"
                     >
                         <Settings className="w-4 h-4" />
@@ -351,7 +353,7 @@ export default function CustomizableDashboard() {
                 <div className="bg-card border border-border rounded-xl p-4">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="font-semibold">Widget Library</h3>
-                        <button 
+                        <button
                             onClick={() => setShowLibrary(false)}
                             className="p-1 hover:bg-accent rounded"
                         >
@@ -399,7 +401,7 @@ export default function CustomizableDashboard() {
                             <div>
                                 <h4 className="text-xs font-medium text-muted-foreground uppercase mb-2">Extensions</h4>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                                    {extensionWidgets.map(widget => {
+                                    {extensionWidgets.map((widget: WidgetDefinition) => {
                                         const Icon = widget.icon
                                         return (
                                             <button
@@ -427,7 +429,7 @@ export default function CustomizableDashboard() {
                     cols={cols}
                     rowHeight={rowHeight}
                     onLayoutChange={onLayoutChange}
-                    onBreakpointChange={(newBreakpoint) => setCurrentBreakpoint(newBreakpoint)}
+                    onBreakpointChange={(newBreakpoint: string) => setCurrentBreakpoint(newBreakpoint)}
                     isDraggable={isEditing}
                     isResizable={isEditing}
                     draggableHandle=".widget-drag-handle"

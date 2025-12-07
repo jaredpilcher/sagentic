@@ -1,4 +1,5 @@
-import React from 'react'
+// React unused
+
 
 interface DataTableProps {
     data: Array<Record<string, unknown>>

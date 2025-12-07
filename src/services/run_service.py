@@ -5,7 +5,7 @@ from datetime import datetime
 
 from ..repositories.run_repository import RunRepository
 from ..db.models import Run, Message, NodeExecution, Edge, Evaluation
-from ..core.schemas import TraceIngest, RunCreate, RunStatus
+from ..core.schemas import TraceIngest, RunStatus
 
 class RunService:
     def __init__(self, db: Session):

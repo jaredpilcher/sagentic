@@ -1,4 +1,5 @@
-import React from 'react'
+// React unused
+
 import { formatValue } from '../../lib/formatUtils'
 
 interface StatsGridProps {

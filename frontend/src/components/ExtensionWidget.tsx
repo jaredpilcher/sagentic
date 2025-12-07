@@ -82,7 +82,7 @@ export default function ExtensionWidget({
                 {stats.map(([key, value]) => (
                     <div key={key} className="text-center p-3 bg-muted/30 rounded-lg">
                         <div className="text-2xl font-bold text-primary">
-                            {typeof value === 'number' 
+                            {typeof value === 'number'
                                 ? value.toLocaleString(undefined, { maximumFractionDigits: 2 })
                                 : String(value)}
                         </div>
@@ -127,7 +127,7 @@ export default function ExtensionWidget({
                         {widgetData.type === 'custom' && widgetData.html && (
                             <div dangerouslySetInnerHTML={{ __html: widgetData.html }} />
                         )}
-                        {!widgetData.type && renderStats(widgetData.data || widgetData as Record<string, unknown>)}
+                        {!widgetData.type && renderStats(widgetData.data || widgetData as unknown as Record<string, unknown>)}
                     </div>
                 ) : (
                     <p className="text-muted-foreground">No data available</p>

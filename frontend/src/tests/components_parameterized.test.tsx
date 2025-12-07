@@ -1,12 +1,16 @@
-import React from 'react';
+// React unused
+;
 import { formatValue } from '../lib/formatUtils';
 
-/* Shim for standalone execution without test runner */
-const describe = (globalThis as any).describe || ((name: string, fn: () => void) => {
+type TestFn = (name: string, fn: () => void) => void;
+type TestGlobal = { describe?: TestFn; test?: TestFn };
+const globalContext = globalThis as unknown as TestGlobal;
+
+const describe = globalContext.describe || ((name: string, fn: () => void) => {
     console.log(`\nSUITE: ${name}`);
     fn();
 });
-const test = (globalThis as any).test || ((name: string, fn: () => void) => {
+const test = globalContext.test || ((name: string, fn: () => void) => {
     try {
         fn();
         console.log(`  PASS: ${name}`);

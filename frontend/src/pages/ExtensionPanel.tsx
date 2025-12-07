@@ -1,6 +1,7 @@
-import { useParams, Link, useLocation } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { Loader2, AlertCircle, ArrowLeft, RefreshCw, ChevronRight } from 'lucide-react'
 import { useExtensions } from '../lib/extensions'
+import type { ExtensionPageContribution } from '../lib/extension-types'
 import * as LucideIcons from 'lucide-react'
 
 import { ExtensionSection } from '../components/extension/ExtensionSection'
@@ -93,13 +94,13 @@ export default function ExtensionPanel() {
                     <Link
                         to={`/extensions/${extensionName}`}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${!currentPath
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-muted/30 hover:bg-muted/50'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted/30 hover:bg-muted/50'
                             }`}
                     >
                         Overview
                     </Link>
-                    {pages.filter(p => p.path !== '/' && p.path !== '').map(page => {
+                    {pages.filter((p: ExtensionPageContribution) => p.path !== '/' && p.path !== '').map((page: ExtensionPageContribution) => {
                         const Icon = iconMap[page.icon || 'Package'] || LucideIcons.FileText
                         const isActive = currentPath === page.path.replace(/^\//, '')
                         return (
@@ -107,8 +108,8 @@ export default function ExtensionPanel() {
                                 key={page.id}
                                 to={`/extensions/${extensionName}/${page.path.replace(/^\//, '')}`}
                                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
-                                        ? 'bg-primary text-primary-foreground'
-                                        : 'bg-muted/30 hover:bg-muted/50'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-muted/30 hover:bg-muted/50'
                                     }`}
                             >
                                 <Icon className="w-4 h-4" />

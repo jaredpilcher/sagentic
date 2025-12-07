@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 
@@ -6,8 +6,7 @@ from ...db.database import get_db
 from ...services.extension_service import ExtensionService
 from ...extensions.manager import ExtensionManager
 from ...extensions.schemas import (
-    ExtensionListResponse, ExtensionInfo, ExtensionManifest, ExtensionInstallResponse, 
-    ExtensionStatusUpdate, FrontendExtensionManifest
+    ExtensionListResponse, ExtensionInfo, ExtensionManifest, ExtensionInstallResponse
 )
 
 # Need a way to get the singleton ExtensionManager since it holds state

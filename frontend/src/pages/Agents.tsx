@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import axios from 'axios'
 import { Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
-import { 
-    Bot, Activity, Zap, Clock, DollarSign, CheckCircle, XCircle, 
+import {
+    Bot, Activity, Zap, Clock, DollarSign, CheckCircle, XCircle,
     RefreshCw, TrendingUp, ArrowRight
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useExtensions } from '../lib/extensions'
+import type { AgentActionContribution } from '../lib/extension-types'
 
 interface Agent {
     graph_id: string
@@ -27,14 +28,14 @@ export default function Agents() {
     const [agents, setAgents] = useState<Agent[]>([])
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
-    
+
     const { getAgentActions } = useExtensions()
     const agentActions = getAgentActions()
 
-    const fetchAgents = (isRefresh = false) => {
+    const fetchAgents = useCallback((isRefresh = false) => {
         if (isRefresh) setRefreshing(true)
         else setLoading(true)
-        
+
         axios.get('/api/agents')
             .then(res => setAgents(res.data.agents || []))
             .catch(err => console.error(err))
@@ -42,11 +43,12 @@ export default function Agents() {
                 setLoading(false)
                 setRefreshing(false)
             })
-    }
+    }, [])
 
     useEffect(() => {
-        fetchAgents()
-    }, [])
+        const t = setTimeout(() => fetchAgents(), 0)
+        return () => clearTimeout(t)
+    }, [fetchAgents])
 
     return (
         <div className="space-y-6">
@@ -58,7 +60,7 @@ export default function Agents() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button 
+                    <button
                         onClick={() => fetchAgents(true)}
                         disabled={refreshing}
                         className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl transition-colors active:scale-[0.98] disabled:opacity-50"
@@ -128,10 +130,9 @@ export default function Agents() {
                                             <TrendingUp className="w-3 h-3" />
                                             <span className="text-xs">Success Rate</span>
                                         </div>
-                                        <p className={`text-lg font-bold ${
-                                            agent.success_rate >= 90 ? 'text-green-500' :
+                                        <p className={`text-lg font-bold ${agent.success_rate >= 90 ? 'text-green-500' :
                                             agent.success_rate >= 70 ? 'text-yellow-500' : 'text-red-500'
-                                        }`}>
+                                            }`}>
                                             {agent.success_rate}%
                                         </p>
                                     </div>
@@ -174,9 +175,9 @@ export default function Agents() {
             {agentActions.length > 0 && agents.length > 0 && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mt-4">
                     <span>Extension analytics: </span>
-                    {agentActions.map((action, i) => (
+                    {agentActions.map((action: AgentActionContribution & { extensionId: string; extensionName: string }, i: number) => (
                         <span key={`${action.extensionId}-${action.id}`}>
-                            <Link 
+                            <Link
                                 to={`/extensions/${action.extensionName}`}
                                 className="text-primary hover:underline"
                             >

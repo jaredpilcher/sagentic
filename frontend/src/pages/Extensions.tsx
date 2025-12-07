@@ -17,8 +17,8 @@ interface Extension {
         author?: string
         backend_entry?: string
         frontend_entry?: string
-        nav_items?: any[]
-        routes?: any[]
+        nav_items?: Array<Record<string, unknown>>
+        routes?: Array<Record<string, unknown>>
     }
     created_at: string
     updated_at: string
@@ -39,7 +39,7 @@ export default function Extensions() {
             const data = await res.json()
             setExtensions(data.extensions || [])
             setError(null)
-        } catch (err) {
+        } catch {
             setError('Failed to load extensions')
         } finally {
             setLoading(false)
@@ -79,7 +79,7 @@ export default function Extensions() {
             } else {
                 setError(data.message || 'Installation failed')
             }
-        } catch (err) {
+        } catch {
             setError('Failed to upload extension')
         } finally {
             setUploading(false)
@@ -101,7 +101,7 @@ export default function Extensions() {
                 setSuccess(`Extension "${ext.name}" ${newStatus}`)
                 fetchExtensions()
             }
-        } catch (err) {
+        } catch {
             setError('Failed to update extension status')
         }
     }
@@ -121,7 +121,7 @@ export default function Extensions() {
             } else {
                 setError(data.message || 'Uninstall failed')
             }
-        } catch (err) {
+        } catch {
             setError('Failed to uninstall extension')
         }
     }
@@ -199,8 +199,8 @@ export default function Extensions() {
                                         </span>
                                         <span className={cn(
                                             "text-xs px-2 py-1 rounded-full",
-                                            ext.status === 'enabled' 
-                                                ? "bg-green-500/10 text-green-500" 
+                                            ext.status === 'enabled'
+                                                ? "bg-green-500/10 text-green-500"
                                                 : "bg-yellow-500/10 text-yellow-500"
                                         )}>
                                             {ext.status}
@@ -271,7 +271,7 @@ export default function Extensions() {
                     Extensions are zip files containing a manifest.json and optional backend/frontend directories.
                 </p>
                 <pre className="bg-muted/50 rounded-lg p-4 text-sm overflow-x-auto">
-{`extension.zip/
+                    {`extension.zip/
 ├── manifest.json      # Required: name, version, description
 ├── backend/           # Optional: Python backend code
 │   └── routes.py      # Exports register(router) function

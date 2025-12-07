@@ -212,9 +212,7 @@ class ExtensionManager:
         except Exception as e:
             return False, f"Failed to uninstall: {str(e)}"
     
-        if frontend_dir.exists():
-            return frontend_dir
-        return None
+
 
     def get_frontend_manifest(self, extensions: List[Any]) -> Dict[str, Any]:
         """Generate frontend manifest for enabled extensions."""

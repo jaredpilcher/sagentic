@@ -220,6 +220,4 @@ class IngestResponse(BaseModel):
     edge_count: int
 
 
-class HealthResponse(BaseModel):
-    status: str
-    version: str
+

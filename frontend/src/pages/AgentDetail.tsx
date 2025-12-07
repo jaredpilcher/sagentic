@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import axios from 'axios'
 import { useParams, Link } from 'react-router-dom'
 import { formatDistanceToNow, format } from 'date-fns'
-import { 
-    Bot, Activity, Zap, Clock, DollarSign, CheckCircle, XCircle, 
+import {
+    Bot, Activity, Zap, Clock, DollarSign, CheckCircle, XCircle,
     ArrowLeft, TrendingUp, Calendar
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import RunsList from '../components/RunsList'
 import { useExtensions } from '../lib/extensions'
+import type { AgentActionContribution } from '../lib/extension-types'
 
 interface AgentStats {
     graph_id: string
@@ -29,13 +30,13 @@ export default function AgentDetail() {
     const [agent, setAgent] = useState<AgentStats | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-    
+
     const { getAgentActions } = useExtensions()
     const agentActions = getAgentActions()
 
-    useEffect(() => {
+    const fetchAgent = useCallback(() => {
         if (!graphId) return
-        
+
         setLoading(true)
         axios.get(`/api/agents/${encodeURIComponent(graphId)}`)
             .then(res => {
@@ -48,6 +49,11 @@ export default function AgentDetail() {
             })
             .finally(() => setLoading(false))
     }, [graphId])
+
+    useEffect(() => {
+        const t = setTimeout(() => fetchAgent(), 0)
+        return () => clearTimeout(t)
+    }, [fetchAgent])
 
     if (loading) {
         return (
@@ -101,7 +107,7 @@ export default function AgentDetail() {
                 </div>
                 {agentActions.length > 0 && (
                     <div className="flex items-center gap-2">
-                        {agentActions.map(action => (
+                        {agentActions.map((action: AgentActionContribution & { extensionName: string; extensionId: string }) => (
                             <Link
                                 key={`${action.extensionId}-${action.id}`}
                                 to={`/extensions/${action.extensionName}?graph=${encodeURIComponent(agent.graph_id)}`}
@@ -147,10 +153,9 @@ export default function AgentDetail() {
                         <TrendingUp className="w-4 h-4" />
                         <span className="text-sm">Success Rate</span>
                     </div>
-                    <p className={`text-3xl font-bold ${
-                        agent.success_rate >= 90 ? 'text-green-500' :
+                    <p className={`text-3xl font-bold ${agent.success_rate >= 90 ? 'text-green-500' :
                         agent.success_rate >= 70 ? 'text-yellow-500' : 'text-red-500'
-                    }`}>
+                        }`}>
                         {agent.success_rate}%
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
@@ -217,7 +222,7 @@ export default function AgentDetail() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25 }}
             >
-                <RunsList 
+                <RunsList
                     graphId={graphId}
                     showGraphFilter={false}
                     showTitle={false}

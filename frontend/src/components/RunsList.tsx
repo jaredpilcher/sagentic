@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import axios from 'axios'
 import { Link } from 'react-router-dom'
 import { formatDistanceToNow, format } from 'date-fns'
-import { 
-    Activity, ArrowRight, Bot, Clock, Zap, CheckCircle, XCircle, 
+import {
+    Activity, ArrowRight, Bot, Clock, Zap, CheckCircle, XCircle,
     AlertCircle, RefreshCw, Search, Filter, BarChart3, Code2
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useExtensions } from '../lib/extensions'
+import type { RunActionContribution } from '../lib/extension-types'
 
 interface Run {
     id: string
@@ -36,8 +37,8 @@ interface RunsListProps {
     showStatePreview?: boolean
 }
 
-export default function RunsList({ 
-    graphId, 
+export default function RunsList({
+    graphId,
     showGraphFilter = true,
     showTitle = true,
     title = "All Runs",
@@ -52,16 +53,16 @@ export default function RunsList({
     const [searchQuery, setSearchQuery] = useState('')
     const [showFilters, setShowFilters] = useState(false)
     const [expandedStates, setExpandedStates] = useState<Set<string>>(new Set())
-    
+
     const { getRunActions } = useExtensions()
     const runActions = getRunActions()
 
-    const fetchRuns = (isRefresh = false) => {
+    const fetchRuns = useCallback((isRefresh = false) => {
         if (isRefresh) setRefreshing(true)
         else setLoading(true)
-        
+
         axios.get('/api/runs', {
-            params: { 
+            params: {
                 status: statusFilter || undefined,
                 graph_id: graphId || undefined,
                 limit: 200
@@ -73,11 +74,12 @@ export default function RunsList({
                 setLoading(false)
                 setRefreshing(false)
             })
-    }
+    }, [statusFilter, graphId])
 
     useEffect(() => {
-        fetchRuns()
-    }, [statusFilter, graphId])
+        const t = setTimeout(() => fetchRuns(), 0)
+        return () => clearTimeout(t)
+    }, [fetchRuns])
 
     const uniqueGraphs = [...new Set(runs.map(r => r.graph_id).filter(Boolean))] as string[]
 
@@ -148,7 +150,7 @@ export default function RunsList({
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button 
+                        <button
                             onClick={() => fetchRuns(true)}
                             disabled={refreshing}
                             className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl transition-colors active:scale-[0.98] disabled:opacity-50"
@@ -174,11 +176,10 @@ export default function RunsList({
                     </div>
                     <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-colors ${
-                            showFilters || statusFilter || graphFilter
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-accent hover:bg-accent/80'
-                        }`}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-colors ${showFilters || statusFilter || graphFilter
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-accent hover:bg-accent/80'
+                            }`}
                     >
                         <Filter className="w-4 h-4" />
                         <span className="text-sm">Filters</span>
@@ -244,9 +245,9 @@ export default function RunsList({
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <BarChart3 className="w-4 h-4" />
                     <span>Extensions available: </span>
-                    {runActions.map((action, i) => (
+                    {runActions.map((action: RunActionContribution & { extensionName: string; extensionId: string }, i: number) => (
                         <span key={`${action.extensionId}-${action.id}`}>
-                            <Link 
+                            <Link
                                 to={`/extensions/${action.extensionName}`}
                                 className="text-primary hover:underline"
                             >
@@ -265,7 +266,7 @@ export default function RunsList({
                         {(statusFilter || graphFilter || searchQuery) && ' (filtered)'}
                     </h3>
                     {!showTitle && (
-                        <button 
+                        <button
                             onClick={() => fetchRuns(true)}
                             disabled={refreshing}
                             className="flex items-center justify-center gap-2 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg transition-colors text-sm"
@@ -356,7 +357,7 @@ export default function RunsList({
                                             <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors mt-1" />
                                         </div>
                                     </div>
-                                    
+
                                     {showStatePreview && (run.input_state || run.output_state) && (
                                         <div className="mt-3 ml-14">
                                             <button
@@ -373,7 +374,7 @@ export default function RunsList({
                                                     )}
                                                 </span>
                                             </button>
-                                            
+
                                             {expandedStates.has(run.id) && (
                                                 <motion.div
                                                     initial={{ opacity: 0, height: 0 }}
