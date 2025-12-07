@@ -45,6 +45,19 @@ class SettingsPanelContribution(BaseModel):
     component: Optional[str] = None
 
 
+class NetworkPermission(BaseModel):
+    """Defines allowed network endpoints for an extension."""
+    url: str = Field(..., description="Allowed URL pattern (e.g., 'https://api.example.com/*')")
+    description: Optional[str] = Field(None, description="Human-readable description of why this URL is needed")
+    methods: Optional[List[str]] = Field(None, description="Allowed HTTP methods (GET, POST, etc). None = all allowed")
+
+
+class ExtensionPermissions(BaseModel):
+    """Permissions requested by an extension. Displayed to user during installation."""
+    storage: Optional[bool] = Field(False, description="Request access to persistent storage")
+    network: Optional[List[NetworkPermission]] = Field(None, description="List of allowed external URLs")
+
+
 class ExtensionContributes(BaseModel):
     sidebar_panels: Optional[List[SidebarPanelContribution]] = None
     dashboard_widgets: Optional[List[DashboardWidgetContribution]] = None
@@ -64,6 +77,7 @@ class ExtensionManifest(BaseModel):
     frontend_entry: Optional[str] = Field(None, description="Frontend entry point, e.g., 'index.js'")
     
     contributes: Optional[ExtensionContributes] = Field(None, description="UI contribution points")
+    permissions: Optional[ExtensionPermissions] = Field(None, description="Permissions requested by the extension")
     
     activation_events: Optional[List[str]] = Field(None, description="Events that activate the extension")
     dependencies: Optional[List[str]] = Field(None, description="Python dependencies")

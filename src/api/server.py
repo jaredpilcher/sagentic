@@ -11,7 +11,7 @@ import tempfile
 import os
 
 from ..db.database import get_db
-from ..db.models import Run, NodeExecution, Message, Edge, Evaluation, Extension, ExtensionData
+from ..db.models import Run, NodeExecution, Message, Edge, Evaluation, Extension, ExtensionData, ExtensionNetworkAudit
 from ..extensions.manager import ExtensionManager, EXTENSIONS_DIR
 from ..extensions.schemas import (
     ExtensionInfo, ExtensionManifest, ExtensionListResponse,
@@ -845,6 +845,205 @@ def delete_extension_data_by_name(
         raise HTTPException(status_code=404, detail="Extension not found")
     
     return delete_extension_data(ext.id, key, db)
+
+
+@app.get("/api/extensions/{extension_id}/audit")
+def get_extension_audit_log(
+    extension_id: str,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    allowed_only: Optional[bool] = None,
+    blocked_only: Optional[bool] = None,
+    db: Session = Depends(get_db)
+):
+    """Get network audit log for an extension.
+    
+    Shows all HTTP requests made by the extension, both allowed and blocked.
+    Useful for reviewing extension behavior and troubleshooting.
+    """
+    ext = db.query(Extension).filter(Extension.id == extension_id).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    query = db.query(ExtensionNetworkAudit).filter(
+        ExtensionNetworkAudit.extension_id == extension_id
+    )
+    
+    if allowed_only:
+        query = query.filter(ExtensionNetworkAudit.allowed == True)
+    elif blocked_only:
+        query = query.filter(ExtensionNetworkAudit.allowed == False)
+    
+    total = query.count()
+    
+    entries = query.order_by(
+        desc(ExtensionNetworkAudit.created_at)
+    ).offset(offset).limit(limit).all()
+    
+    return {
+        "extension_id": extension_id,
+        "extension_name": ext.name,
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "entries": [
+            {
+                "id": entry.id,
+                "target_url": entry.target_url,
+                "method": entry.method,
+                "allowed": entry.allowed,
+                "blocked_reason": entry.blocked_reason,
+                "response_status": entry.response_status,
+                "response_time_ms": entry.response_time_ms,
+                "request_body_hash": entry.request_body_hash,
+                "response_body_excerpt": entry.response_body_excerpt[:200] if entry.response_body_excerpt else None,
+                "error": entry.error,
+                "created_at": entry.created_at.isoformat() if entry.created_at else None
+            }
+            for entry in entries
+        ]
+    }
+
+
+@app.get("/api/extensions/{extension_id}/audit/{audit_id}")
+def get_audit_entry_detail(
+    extension_id: str,
+    audit_id: str,
+    db: Session = Depends(get_db)
+):
+    """Get full details of a specific audit log entry."""
+    ext = db.query(Extension).filter(Extension.id == extension_id).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    entry = db.query(ExtensionNetworkAudit).filter(
+        ExtensionNetworkAudit.id == audit_id,
+        ExtensionNetworkAudit.extension_id == extension_id
+    ).first()
+    
+    if not entry:
+        raise HTTPException(status_code=404, detail="Audit entry not found")
+    
+    return {
+        "id": entry.id,
+        "extension_id": entry.extension_id,
+        "extension_name": entry.extension_name,
+        "target_url": entry.target_url,
+        "method": entry.method,
+        "request_headers": entry.request_headers,
+        "request_body_hash": entry.request_body_hash,
+        "request_body_size": entry.request_body_size,
+        "response_status": entry.response_status,
+        "response_time_ms": entry.response_time_ms,
+        "response_headers": entry.response_headers,
+        "response_body_excerpt": entry.response_body_excerpt,
+        "response_body_size": entry.response_body_size,
+        "allowed": entry.allowed,
+        "blocked_reason": entry.blocked_reason,
+        "error": entry.error,
+        "created_at": entry.created_at.isoformat() if entry.created_at else None
+    }
+
+
+@app.get("/api/audit/all")
+def get_all_audit_logs(
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+    extension_name: Optional[str] = None,
+    allowed_only: Optional[bool] = None,
+    blocked_only: Optional[bool] = None,
+    db: Session = Depends(get_db)
+):
+    """Get audit logs across all extensions (admin view).
+    
+    Provides a global view of all extension network activity.
+    """
+    query = db.query(ExtensionNetworkAudit)
+    
+    if extension_name:
+        query = query.filter(ExtensionNetworkAudit.extension_name == extension_name)
+    
+    if allowed_only:
+        query = query.filter(ExtensionNetworkAudit.allowed == True)
+    elif blocked_only:
+        query = query.filter(ExtensionNetworkAudit.allowed == False)
+    
+    total = query.count()
+    
+    entries = query.order_by(
+        desc(ExtensionNetworkAudit.created_at)
+    ).offset(offset).limit(limit).all()
+    
+    return {
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "entries": [
+            {
+                "id": entry.id,
+                "extension_name": entry.extension_name,
+                "target_url": entry.target_url,
+                "method": entry.method,
+                "allowed": entry.allowed,
+                "blocked_reason": entry.blocked_reason,
+                "response_status": entry.response_status,
+                "response_time_ms": entry.response_time_ms,
+                "error": entry.error,
+                "created_at": entry.created_at.isoformat() if entry.created_at else None
+            }
+            for entry in entries
+        ]
+    }
+
+
+@app.get("/api/extensions/{extension_id}/permissions")
+def get_extension_permissions(
+    extension_id: str,
+    db: Session = Depends(get_db)
+):
+    """Get the permissions requested by an extension.
+    
+    Returns the full permissions manifest including storage access
+    and allowed network URLs. This is what the user should review
+    before installing or enabling an extension.
+    """
+    ext = db.query(Extension).filter(Extension.id == extension_id).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    permissions = ext.manifest.get("permissions", {})
+    
+    storage_permission = permissions.get("storage", False)
+    network_permissions = permissions.get("network", [])
+    
+    formatted_network = []
+    for perm in network_permissions:
+        if isinstance(perm, dict):
+            formatted_network.append({
+                "url": perm.get("url"),
+                "description": perm.get("description", "No description provided"),
+                "methods": perm.get("methods", ["ALL"])
+            })
+        else:
+            formatted_network.append({
+                "url": perm,
+                "description": "No description provided",
+                "methods": ["ALL"]
+            })
+    
+    return {
+        "extension_id": extension_id,
+        "extension_name": ext.name,
+        "permissions": {
+            "storage": storage_permission,
+            "network": formatted_network
+        },
+        "summary": {
+            "requires_storage": storage_permission,
+            "network_access_count": len(formatted_network),
+            "network_urls": [p["url"] for p in formatted_network]
+        }
+    }
 
 
 @app.on_event("startup")

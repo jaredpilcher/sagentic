@@ -199,3 +199,39 @@ class ExtensionData(Base):
     __table_args__ = (
         Index('ix_extension_data_ext_key', 'extension_id', 'key', unique=True),
     )
+
+
+class ExtensionNetworkAudit(Base):
+    """Audit log for extension network requests.
+    
+    Records all HTTP requests made by extensions through the proxy,
+    including requests that were blocked due to URL whitelist violations.
+    """
+    __tablename__ = 'extension_network_audit'
+    
+    id = Column(String, primary_key=True, default=generate_uuid)
+    extension_id = Column(String, ForeignKey('extensions.id', ondelete='CASCADE'), nullable=False, index=True)
+    extension_name = Column(String, nullable=False, index=True)
+    
+    target_url = Column(String, nullable=False)
+    method = Column(String, nullable=False)
+    
+    request_headers = Column(JSONB, nullable=True)
+    request_body_hash = Column(String, nullable=True)
+    request_body_size = Column(Integer, nullable=True)
+    
+    response_status = Column(Integer, nullable=True)
+    response_time_ms = Column(Integer, nullable=True)
+    response_headers = Column(JSONB, nullable=True)
+    response_body_excerpt = Column(Text, nullable=True)
+    response_body_size = Column(Integer, nullable=True)
+    
+    allowed = Column(Boolean, nullable=False, default=True)
+    blocked_reason = Column(String, nullable=True)
+    error = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    
+    __table_args__ = (
+        Index('ix_network_audit_ext_created', 'extension_id', 'created_at'),
+    )

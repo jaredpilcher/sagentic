@@ -90,7 +90,7 @@ extension.zip/
     └── index.html     # Frontend entry point
 ```
 
-### manifest.json with Contribution Points
+### manifest.json with Contribution Points and Permissions
 ```json
 {
     "name": "my-extension",
@@ -99,6 +99,16 @@ extension.zip/
     "author": "Author Name",
     "backend_entry": "routes:register",
     "frontend_entry": "index.html",
+    "permissions": {
+        "storage": true,
+        "network": [
+            {
+                "url": "https://api.example.com/*",
+                "description": "Sync data with external service",
+                "methods": ["GET", "POST"]
+            }
+        ]
+    },
     "contributes": {
         "sidebar_panels": [
             {"id": "my-panel", "title": "My Panel", "icon": "BarChart3", "priority": 10}
@@ -183,6 +193,58 @@ all_data = storage.get_all()
 - `DELETE /api/extensions/{id}/data/{key}` - Delete a key
 
 Extensions can also use the `/api/extensions/by-name/{name}/data/...` endpoints for convenience.
+
+### Extension Network Permissions and Auditing
+
+Extensions can make HTTP requests to external servers, but only to URLs explicitly declared in their manifest. All requests are audited for security.
+
+**Declaring network permissions in manifest.json:**
+```json
+{
+    "permissions": {
+        "storage": true,
+        "network": [
+            {
+                "url": "https://api.example.com/*",
+                "description": "Why this URL is needed",
+                "methods": ["GET", "POST"]
+            }
+        ]
+    }
+}
+```
+
+**URL patterns supported:**
+- Exact match: `https://api.example.com/endpoint`
+- Wildcard path: `https://api.example.com/*`
+- Wildcard subdomain: `https://*.example.com/*`
+
+**Making secure HTTP requests from extensions:**
+```python
+from src.extensions.http_client import ExtensionHttpClient
+
+client = ExtensionHttpClient("my-extension")
+
+# Only whitelisted URLs will succeed
+response = client.get("https://api.example.com/data")
+response = client.post("https://api.example.com/submit", json={"key": "value"})
+
+# Non-whitelisted URLs are blocked and logged
+# client.get("https://evil.com")  # Raises PermissionError
+```
+
+**Security features:**
+- Extensions can ONLY access URLs defined in their manifest
+- Users see all requested permissions before installing
+- All requests (allowed and blocked) are logged to the audit table
+- Sensitive headers (Authorization, API keys) are redacted in logs
+- Request bodies are hashed, response bodies are excerpted
+
+**Audit log API endpoints:**
+- `GET /api/extensions/{id}/audit` - View extension's network activity
+- `GET /api/extensions/{id}/audit/{audit_id}` - Get full request details
+- `GET /api/audit/all` - View all extension network activity (admin)
+- `GET /api/extensions/{id}/permissions` - View extension's declared permissions
 
 ### Example Extension
 See `example-extensions/agent-metrics/` for a complete example that adds:

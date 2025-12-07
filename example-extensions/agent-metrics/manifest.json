@@ -1,10 +1,25 @@
 {
     "name": "agent-metrics",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Analytics and metrics dashboard for agent performance",
     "author": "Sagentic",
     "backend_entry": "routes:register",
     "frontend_entry": "index.html",
+    "permissions": {
+        "storage": true,
+        "network": [
+            {
+                "url": "https://api.openai.com/*",
+                "description": "Send metrics to OpenAI for analysis (optional feature)",
+                "methods": ["POST"]
+            },
+            {
+                "url": "https://analytics.sagentic.io/*",
+                "description": "Report anonymized usage statistics",
+                "methods": ["POST", "GET"]
+            }
+        ]
+    },
     "contributes": {
         "sidebar_panels": [
             {
