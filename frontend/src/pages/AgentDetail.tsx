@@ -30,8 +30,8 @@ export default function AgentDetail() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     
-    const { getRunActions } = useExtensions()
-    const agentActions = getRunActions()
+    const { getAgentActions } = useExtensions()
+    const agentActions = getAgentActions()
 
     useEffect(() => {
         if (!graphId) return

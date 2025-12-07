@@ -28,8 +28,8 @@ export default function Agents() {
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     
-    const { getRunActions } = useExtensions()
-    const agentActions = getRunActions()
+    const { getAgentActions } = useExtensions()
+    const agentActions = getAgentActions()
 
     const fetchAgents = (isRefresh = false) => {
         if (isRefresh) setRefreshing(true)
