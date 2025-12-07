@@ -83,23 +83,31 @@ app.include_router(extensions.router)
 # Frontend dist is likely in project_root/frontend/dist
 # Currently __file__ is src/api/server.py
 # So ../../../frontend/dist
-FRONTEND_DIST = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend", "dist")
+# Static file serving
+# Prioritize 'static' dir in CWD (Docker), fallback to relative 'frontend/dist' (Local)
+STATIC_DIR = os.path.join(os.getcwd(), "static")
+if not os.path.exists(STATIC_DIR):
+    FRONTEND_DIST = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend", "dist")
+    if os.path.exists(FRONTEND_DIST):
+        STATIC_DIR = FRONTEND_DIST
+    else:
+        STATIC_DIR = None
 
-if os.path.exists(FRONTEND_DIST):
-    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
+if STATIC_DIR:
+    app.mount("/assets", StaticFiles(directory=os.path.join(STATIC_DIR, "assets")), name="assets")
     
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
-        # API fallthrough check (though routers should catch their paths)
+        # API fallthrough check
         if full_path.startswith("api/"):
             return JSONResponse(status_code=404, content={"detail": "Not Found"})
 
-        path = os.path.join(FRONTEND_DIST, full_path)
+        path = os.path.join(STATIC_DIR, full_path)
         if os.path.exists(path) and os.path.isfile(path):
             return FileResponse(path)
         
         # Fallback to index.html for SPA routing
-        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
+        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 else:
     @app.get("/")
     def read_root():
