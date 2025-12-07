@@ -90,7 +90,7 @@ extension.zip/
     └── index.html     # Frontend entry point
 ```
 
-### manifest.json
+### manifest.json with Contribution Points
 ```json
 {
     "name": "my-extension",
@@ -98,9 +98,29 @@ extension.zip/
     "description": "Description of the extension",
     "author": "Author Name",
     "backend_entry": "routes:register",
-    "frontend_entry": "index.html"
+    "frontend_entry": "index.html",
+    "contributes": {
+        "sidebar_panels": [
+            {"id": "my-panel", "title": "My Panel", "icon": "BarChart3", "priority": 10}
+        ],
+        "dashboard_widgets": [
+            {"id": "my-widget", "title": "My Widget", "width": "medium", "height": "medium"}
+        ],
+        "run_actions": [
+            {"id": "my-action", "title": "My Action", "icon": "Zap"}
+        ]
+    }
 }
 ```
+
+### Contribution Points (VS Code-style)
+Extensions can inject UI at these touchpoints:
+- **sidebar_panels**: Add navigation items to the sidebar with dedicated pages
+- **dashboard_widgets**: Add metric/data widgets to the main dashboard
+- **run_actions**: Add action buttons to run detail pages
+- **node_actions**: Add action buttons to node detail views
+- **context_menus**: Add items to context menus
+- **settings_panels**: Add configuration UI panels
 
 ### Extension API Endpoints
 - `GET /api/extensions` - List installed extensions
@@ -133,11 +153,12 @@ See `example-extensions/agent-metrics/` for a complete example that adds:
 - `/api/extensions/agent-metrics/graphs` - Per-graph statistics
 
 ## Recent Changes (Dec 7, 2025)
-- Added Extension/Plugin management system
-- Extensions can add backend API routes and frontend components
+- Added VS Code-style Extension system with contribution points
+- Extensions can inject UI at: sidebar panels, dashboard widgets, run actions
+- Extensions can add backend API routes and serve frontend assets
 - Single zip package installation and removal
-- Enable/disable extensions without uninstalling
-- Created example agent-metrics extension
+- Enable/disable extensions dynamically updates UI (sidebar, widgets disappear)
+- Created example agent-metrics extension demonstrating all contribution points
 
 ## Recent Changes (Dec 6, 2025)
 - Transformed to LangGraph-focused observability platform

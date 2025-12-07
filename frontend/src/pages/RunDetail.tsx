@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import axios from 'axios'
-import { ArrowLeft, Clock, Zap, DollarSign, CheckCircle, XCircle, ChevronDown, ChevronRight, MessageSquare, GitBranch, Activity, Copy, Check } from 'lucide-react'
+import { ArrowLeft, Clock, Zap, DollarSign, CheckCircle, XCircle, ChevronDown, ChevronRight, MessageSquare, GitBranch, Activity, Copy, Check, BarChart3, Settings, Shield } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useExtensions } from '../lib/extensions'
+
+const actionIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+    BarChart3, Settings, Shield, Zap, Activity, Check
+}
 
 interface Message {
     id: string
@@ -72,6 +77,18 @@ export default function RunDetailPage() {
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
     const [activeTab, setActiveTab] = useState<'timeline' | 'graph'>('timeline')
     const [copied, setCopied] = useState(false)
+    const { getRunActions, executeAction } = useExtensions()
+    
+    const runActions = getRunActions()
+
+    const handleExtensionAction = async (extensionName: string, actionId: string) => {
+        if (!run) return
+        try {
+            await executeAction(extensionName, actionId, { run_id: run.id, graph_id: run.graph_id })
+        } catch (err) {
+            console.error('Extension action failed:', err)
+        }
+    }
 
     useEffect(() => {
         if (!runId) return
@@ -191,6 +208,25 @@ export default function RunDetailPage() {
                 <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500">
                     <div className="font-medium mb-1 text-sm">Error</div>
                     <div className="text-sm font-mono break-all">{run.error}</div>
+                </div>
+            )}
+
+            {runActions.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                    <span className="text-xs text-muted-foreground self-center mr-1">Extensions:</span>
+                    {runActions.map(action => {
+                        const Icon = actionIconMap[action.icon || 'Zap'] || Zap
+                        return (
+                            <Link
+                                key={`${action.extensionId}-${action.id}`}
+                                to={`/extensions/${action.extensionName}`}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent hover:bg-accent/80 transition-colors text-sm"
+                            >
+                                <Icon className="w-4 h-4" />
+                                <span>{action.title}</span>
+                            </Link>
+                        )
+                    })}
                 </div>
             )}
 
