@@ -32,7 +32,7 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
     {
         id: 'total-runs',
         title: 'Total Runs',
-        description: 'Total number of workflow runs',
+        description: 'Total runs',
         icon: Activity,
         category: 'metrics',
         defaultSize: { w: 2, h: 3 },
@@ -42,7 +42,7 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
     {
         id: 'completed-runs',
         title: 'Completed',
-        description: 'Successfully completed runs',
+        description: 'Completed runs',
         icon: CheckCircle,
         category: 'metrics',
         defaultSize: { w: 2, h: 3 },
@@ -52,7 +52,7 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
     {
         id: 'failed-runs',
         title: 'Failed',
-        description: 'Failed workflow runs',
+        description: 'Failed runs',
         icon: XCircle,
         category: 'metrics',
         defaultSize: { w: 2, h: 3 },
@@ -62,7 +62,7 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
     {
         id: 'avg-latency',
         title: 'Avg Latency',
-        description: 'Average execution latency',
+        description: 'Average speed',
         icon: Clock,
         category: 'metrics',
         defaultSize: { w: 2, h: 3 },
@@ -72,7 +72,7 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
     {
         id: 'total-cost',
         title: 'Total Cost',
-        description: 'Cumulative API costs',
+        description: 'All costs',
         icon: DollarSign,
         category: 'metrics',
         defaultSize: { w: 2, h: 3 },
@@ -82,7 +82,7 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
     {
         id: 'total-tokens',
         title: 'Tokens',
-        description: 'Total tokens consumed',
+        description: 'Tokens used',
         icon: Zap,
         category: 'metrics',
         defaultSize: { w: 2, h: 3 },
@@ -92,7 +92,7 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
     {
         id: 'unique-graphs',
         title: 'Graphs',
-        description: 'Unique graph definitions',
+        description: 'Unique graphs',
         icon: Bot,
         category: 'metrics',
         defaultSize: { w: 2, h: 3 },
@@ -102,7 +102,7 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
     {
         id: 'total-nodes',
         title: 'Nodes',
-        description: 'Total node executions',
+        description: 'Total nodes',
         icon: Activity,
         category: 'metrics',
         defaultSize: { w: 2, h: 3 },
@@ -112,7 +112,7 @@ export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
     {
         id: 'recent-runs',
         title: 'Recent Runs',
-        description: 'Latest workflow executions',
+        description: 'Latest runs',
         icon: TrendingUp,
         category: 'runs',
         defaultSize: { w: 6, h: 6 },

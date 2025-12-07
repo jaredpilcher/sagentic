@@ -46,12 +46,7 @@ def health_check():
 
 @app.post("/api/traces", response_model=IngestResponse)
 def ingest_trace(trace: TraceIngest, db: Session = Depends(get_db)):
-    """Ingest a complete workflow trace from LangGraph.
-    
-    Supports upsert: if run_id exists, existing data is replaced with new trace.
-    Uses provided timestamps when available, otherwise defaults to current time.
-    Preserves source ordering from trace payload.
-    """
+    """Digest a trace from langgraph. Upserts if run_id exists. Keeps source ordering."""
     run_id = trace.run_id or str(uuid.uuid4())
     now = datetime.utcnow()
     
@@ -178,7 +173,7 @@ def ingest_trace(trace: TraceIngest, db: Session = Depends(get_db)):
 def list_agents(
     db: Session = Depends(get_db)
 ):
-    """List all agents/graphs with aggregated statistics."""
+    """List agents with stats."""
     from sqlalchemy import func
     
     agents_query = db.query(
@@ -219,7 +214,7 @@ def list_agents(
 
 @app.get("/api/agents/{graph_id}")
 def get_agent(graph_id: str, db: Session = Depends(get_db)):
-    """Get detailed statistics for a specific agent/graph."""
+    """Get stats for one agent."""
     from sqlalchemy import func
     
     agent = db.query(
@@ -278,7 +273,7 @@ def list_runs(
     graph_id: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """List all workflow runs with summary info."""
+    """List runs with summary."""
     query = db.query(Run)
     
     if graph_id:
@@ -319,7 +314,7 @@ def list_runs(
 
 @app.get("/api/runs/{run_id}", response_model=RunDetailResponse)
 def get_run(run_id: str, db: Session = Depends(get_db)):
-    """Get detailed run with all nodes, messages, and edges."""
+    """Get full run details."""
     run = db.query(Run).filter(Run.id == run_id).first()
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
@@ -397,7 +392,7 @@ def get_run(run_id: str, db: Session = Depends(get_db)):
 
 @app.get("/api/runs/{run_id}/graph", response_model=RunGraphResponse)
 def get_run_graph(run_id: str, db: Session = Depends(get_db)):
-    """Get graph visualization data for a run."""
+    """Graph viz data for a run."""
     run = db.query(Run).filter(Run.id == run_id).first()
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
@@ -434,7 +429,7 @@ def get_run_graph(run_id: str, db: Session = Depends(get_db)):
 
 @app.get("/api/runs/{run_id}/nodes/{node_id}")
 def get_node_detail(run_id: str, node_id: str, db: Session = Depends(get_db)):
-    """Get detailed info for a specific node execution."""
+    """Node execution details."""
     node = db.query(NodeExecution).filter(
         NodeExecution.id == node_id,
         NodeExecution.run_id == run_id
@@ -483,7 +478,7 @@ def get_node_detail(run_id: str, node_id: str, db: Session = Depends(get_db)):
 
 @app.post("/api/evaluations", response_model=EvaluationResponse)
 def create_evaluation(evaluation: EvaluationCreate, db: Session = Depends(get_db)):
-    """Create an evaluation/feedback for a run or node."""
+    """Add feedback."""
     run = db.query(Run).filter(Run.id == evaluation.run_id).first()
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
@@ -524,7 +519,7 @@ def create_evaluation(evaluation: EvaluationCreate, db: Session = Depends(get_db
 
 @app.get("/api/runs/{run_id}/evaluations", response_model=List[EvaluationResponse])
 def get_run_evaluations(run_id: str, db: Session = Depends(get_db)):
-    """Get all evaluations for a run."""
+    """Get feedback for a run."""
     evaluations = db.query(Evaluation).filter(Evaluation.run_id == run_id).all()
     return [EvaluationResponse(
         id=e.id,
@@ -540,7 +535,7 @@ def get_run_evaluations(run_id: str, db: Session = Depends(get_db)):
 
 
 def compute_state_diff(state_in: dict, state_out: dict) -> dict:
-    """Compute the difference between input and output states."""
+    """Diff input/output states."""
     diff = {
         "added": {},
         "removed": {},
@@ -571,7 +566,7 @@ def list_extensions(
     status: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """List all installed extensions."""
+    """List extensions."""
     query = db.query(Extension)
     if status:
         query = query.filter(Extension.status == status)
@@ -597,7 +592,7 @@ def list_extensions(
 
 @app.get("/api/extensions/frontend-manifest")
 def get_frontend_manifest(db: Session = Depends(get_db)):
-    """Get manifest of enabled extensions with their UI contribution points."""
+    """Get extension UI manifest."""
     extensions = db.query(Extension).filter(
         Extension.status == "enabled"
     ).all()
@@ -626,7 +621,7 @@ async def install_extension(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    """Upload and install an extension package (zip file)."""
+    """Install extension from zip."""
     if not file.filename.endswith('.zip'):
         raise HTTPException(status_code=400, detail="File must be a .zip archive")
     
@@ -692,7 +687,7 @@ async def install_extension(
 
 @app.delete("/api/extensions/{extension_id}", response_model=ExtensionInstallResponse)
 def uninstall_extension(extension_id: str, db: Session = Depends(get_db)):
-    """Uninstall an extension."""
+    """Uninstall extension."""
     ext = db.query(Extension).filter(Extension.id == extension_id).first()
     if not ext:
         raise HTTPException(status_code=404, detail="Extension not found")
@@ -718,7 +713,7 @@ def update_extension_status(
     update: ExtensionStatusUpdate,
     db: Session = Depends(get_db)
 ):
-    """Enable or disable an extension."""
+    """Enable/disable ext."""
     ext = db.query(Extension).filter(Extension.id == extension_id).first()
     if not ext:
         raise HTTPException(status_code=404, detail="Extension not found")
@@ -743,7 +738,7 @@ def update_extension_status(
 
 @app.get("/api/extensions/{extension_id}")
 def get_extension(extension_id: str, db: Session = Depends(get_db)):
-    """Get extension details."""
+    """Extension info."""
     ext = db.query(Extension).filter(Extension.id == extension_id).first()
     if not ext:
         raise HTTPException(status_code=404, detail="Extension not found")
@@ -771,7 +766,7 @@ def list_extension_data(
     prefix: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """List all data keys for an extension, optionally filtered by prefix."""
+    """List extension data keys."""
     ext = db.query(Extension).filter(Extension.id == extension_id).first()
     if not ext:
         raise HTTPException(status_code=404, detail="Extension not found")
@@ -832,7 +827,7 @@ def set_extension_data(
     body: dict,
     db: Session = Depends(get_db)
 ):
-    """Set a data value for an extension. Creates or updates the key."""
+    """Saving data."""
     ext = db.query(Extension).filter(Extension.id == extension_id).first()
     if not ext:
         raise HTTPException(status_code=404, detail="Extension not found")
@@ -871,7 +866,7 @@ def delete_extension_data(
     key: str,
     db: Session = Depends(get_db)
 ):
-    """Delete a specific data key for an extension."""
+    """Nuking data."""
     ext = db.query(Extension).filter(Extension.id == extension_id).first()
     if not ext:
         raise HTTPException(status_code=404, detail="Extension not found")
@@ -896,7 +891,7 @@ def list_extension_data_by_name(
     prefix: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """List data for an extension by its name (for use by extension backends)."""
+    """List data by name."""
     ext = db.query(Extension).filter(Extension.name == extension_name).first()
     if not ext:
         raise HTTPException(status_code=404, detail="Extension not found")
@@ -910,7 +905,7 @@ def get_extension_data_by_name(
     key: str,
     db: Session = Depends(get_db)
 ):
-    """Get data for an extension by its name."""
+    """Get data by name."""
     ext = db.query(Extension).filter(Extension.name == extension_name).first()
     if not ext:
         raise HTTPException(status_code=404, detail="Extension not found")
@@ -925,7 +920,7 @@ def set_extension_data_by_name(
     body: dict,
     db: Session = Depends(get_db)
 ):
-    """Set data for an extension by its name."""
+    """Set data by name."""
     ext = db.query(Extension).filter(Extension.name == extension_name).first()
     if not ext:
         raise HTTPException(status_code=404, detail="Extension not found")
@@ -939,7 +934,7 @@ def delete_extension_data_by_name(
     key: str,
     db: Session = Depends(get_db)
 ):
-    """Delete data for an extension by its name."""
+    """Delete data by name."""
     ext = db.query(Extension).filter(Extension.name == extension_name).first()
     if not ext:
         raise HTTPException(status_code=404, detail="Extension not found")
@@ -956,11 +951,7 @@ def get_extension_audit_log(
     blocked_only: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
-    """Get network audit log for an extension.
-    
-    Shows all HTTP requests made by the extension, both allowed and blocked.
-    Useful for reviewing extension behavior and troubleshooting.
-    """
+    """Audit log. Shows requests allowed/blocked."""
     ext = db.query(Extension).filter(Extension.id == extension_id).first()
     if not ext:
         raise HTTPException(status_code=404, detail="Extension not found")
@@ -1011,7 +1002,7 @@ def get_audit_entry_detail(
     audit_id: str,
     db: Session = Depends(get_db)
 ):
-    """Get full details of a specific audit log entry."""
+    """Audit details."""
     ext = db.query(Extension).filter(Extension.id == extension_id).first()
     if not ext:
         raise HTTPException(status_code=404, detail="Extension not found")
@@ -1054,10 +1045,7 @@ def get_all_audit_logs(
     blocked_only: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
-    """Get audit logs across all extensions (admin view).
-    
-    Provides a global view of all extension network activity.
-    """
+    """Global audit logs."""
     query = db.query(ExtensionNetworkAudit)
     
     if extension_name:
@@ -1101,12 +1089,7 @@ def get_extension_permissions(
     extension_id: str,
     db: Session = Depends(get_db)
 ):
-    """Get the permissions requested by an extension.
-    
-    Returns the full permissions manifest including storage access
-    and allowed network URLs. This is what the user should review
-    before installing or enabling an extension.
-    """
+    """Get perms."""
     ext = db.query(Extension).filter(Extension.id == extension_id).first()
     if not ext:
         raise HTTPException(status_code=404, detail="Extension not found")
@@ -1155,11 +1138,7 @@ def get_extension_modal_content(
     context: dict = {},
     db: Session = Depends(get_db)
 ):
-    """Get content for an extension modal.
-    
-    Modals are defined in the extension manifest and can return
-    structured content including HTML, data, and action buttons.
-    """
+    """Modal content."""
     ext = db.query(Extension).filter(Extension.name == extension_name).first()
     if not ext:
         raise HTTPException(status_code=404, detail="Extension not found")
@@ -1195,10 +1174,7 @@ def execute_extension_modal_action(
     context: dict = {},
     db: Session = Depends(get_db)
 ):
-    """Execute an action from an extension modal.
-    
-    Returns instructions for what the frontend should do next.
-    """
+    """Run modal action."""
     ext = db.query(Extension).filter(Extension.name == extension_name).first()
     if not ext:
         raise HTTPException(status_code=404, detail="Extension not found")
@@ -1211,7 +1187,7 @@ def execute_extension_modal_action(
 
 @app.on_event("startup")
 async def load_enabled_extensions():
-    """Load backend code for all enabled extensions on startup."""
+    """Load backends on startup."""
     from ..db.database import SessionLocal
     db = SessionLocal()
     try:

@@ -1,25 +1,14 @@
 """
-Extension Storage Helper
+Storage helper for extensions.
 
-This module provides a simple API for extensions to store and retrieve
-persistent data without directly accessing the database.
+Simple api for extensions to stash persistent data without touching the db directly.
 
-Usage in extension backend:
+Usage:
     from src.extensions.storage import ExtensionStorage
     
     storage = ExtensionStorage("my-extension")
-    
-    # Store data
-    storage.set("user_preferences", {"theme": "dark"})
-    
-    # Retrieve data
-    prefs = storage.get("user_preferences")
-    
-    # Delete data
-    storage.delete("user_preferences")
-    
-    # List all keys
-    keys = storage.list()
+    storage.set("preferences", {"theme": "dark"})
+    prefs = storage.get("preferences")
 """
 
 from typing import Any, Optional, List, Dict
@@ -30,23 +19,18 @@ import uuid
 
 
 class ExtensionStorage:
-    """Simple key-value storage API for extensions.
+    """Key-value store for extensions.
     
-    Each extension has its own isolated storage namespace.
-    Data is stored in PostgreSQL and persists across restarts.
+    Namespace isolated per extension. Stored in postgres.
     """
     
     def __init__(self, extension_name: str):
-        """Initialize storage for an extension.
-        
-        Args:
-            extension_name: The name of the extension (from manifest.json)
-        """
+        """Setup storage for an extension."""
         self.extension_name = extension_name
         self._extension_id: Optional[str] = None
     
     def _get_extension_id(self) -> str:
-        """Get the extension's database ID, caching it for reuse."""
+        """Get the db id for the ext, cache it."""
         if self._extension_id:
             return self._extension_id
         
@@ -56,22 +40,14 @@ class ExtensionStorage:
                 Extension.name == self.extension_name
             ).first()
             if not ext:
-                raise ValueError(f"Extension '{self.extension_name}' not found")
+                raise ValueError(f"Extension '{self.extension_name}' MIA")
             self._extension_id = ext.id
             return self._extension_id
         finally:
             db.close()
     
     def get(self, key: str, default: Any = None) -> Any:
-        """Get a value by key.
-        
-        Args:
-            key: The storage key
-            default: Value to return if key doesn't exist
-            
-        Returns:
-            The stored value, or default if not found
-        """
+        """Get value by key, or default if missing."""
         db = SessionLocal()
         try:
             entry = db.query(ExtensionData).filter(
@@ -86,15 +62,7 @@ class ExtensionStorage:
             db.close()
     
     def set(self, key: str, value: Any) -> bool:
-        """Set a value by key.
-        
-        Args:
-            key: The storage key
-            value: The value to store (must be JSON-serializable)
-            
-        Returns:
-            True if successful
-        """
+        """Save a value. Must be json serializable."""
         db = SessionLocal()
         try:
             ext_id = self._get_extension_id()
@@ -124,14 +92,7 @@ class ExtensionStorage:
             db.close()
     
     def delete(self, key: str) -> bool:
-        """Delete a key.
-        
-        Args:
-            key: The storage key to delete
-            
-        Returns:
-            True if the key existed and was deleted, False otherwise
-        """
+        """Nuke a key."""
         db = SessionLocal()
         try:
             entry = db.query(ExtensionData).filter(
@@ -148,14 +109,7 @@ class ExtensionStorage:
             db.close()
     
     def list(self, prefix: Optional[str] = None) -> List[str]:
-        """List all keys in storage.
-        
-        Args:
-            prefix: Optional prefix to filter keys
-            
-        Returns:
-            List of key names
-        """
+        """List keys, maybe filter with prefix."""
         db = SessionLocal()
         try:
             query = db.query(ExtensionData.key).filter(

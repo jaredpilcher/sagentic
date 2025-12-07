@@ -35,7 +35,7 @@ def compute_state_diff(state_in: dict, state_out: dict) -> dict:
 
 
 def parse_datetime(val: Any) -> Optional[datetime]:
-    """Parse datetime from string or return as-is if already datetime."""
+    """Parse iso date."""
     if val is None:
         return None
     if isinstance(val, datetime):
@@ -49,7 +49,7 @@ def parse_datetime(val: Any) -> Optional[datetime]:
 
 
 def ingest_trace(args: Dict[str, Any]) -> Dict[str, Any]:
-    """Ingest a trace with upsert support, proper timestamps, and source ordering."""
+    """Digest trace with upsert."""
     if not SessionLocal:
         return {"error": "Database not configured"}
     
@@ -316,7 +316,7 @@ async def handle_request(request: Dict[str, Any]) -> Dict[str, Any]:
                 "tools": [
                     {
                         "name": "ingest_trace",
-                        "description": "Ingest a complete LangGraph workflow trace for observability",
+                        "description": "Digest a trace.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -384,7 +384,7 @@ async def handle_request(request: Dict[str, Any]) -> Dict[str, Any]:
                     },
                     {
                         "name": "list_runs",
-                        "description": "List recent workflow runs",
+                        "description": "List recent runs",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -395,7 +395,7 @@ async def handle_request(request: Dict[str, Any]) -> Dict[str, Any]:
                     },
                     {
                         "name": "get_run",
-                        "description": "Get detailed information about a specific workflow run",
+                        "description": "Get run details",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
