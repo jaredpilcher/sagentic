@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from enum import Enum
 
@@ -49,6 +49,7 @@ class NodeExecutionCreate(BaseModel):
     state_in: Optional[Dict[str, Any]] = None
     state_out: Optional[Dict[str, Any]] = None
     messages: List[MessageCreate] = Field(default_factory=list)
+    status: Optional[str] = None
     error: Optional[str] = None
 
 
@@ -102,8 +103,7 @@ class MessageResponse(BaseModel):
     tool_calls: Optional[List[Dict[str, Any]]]
     tool_results: Optional[List[Dict[str, Any]]]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class NodeExecutionResponse(BaseModel):
@@ -121,8 +121,7 @@ class NodeExecutionResponse(BaseModel):
     error: Optional[str]
     messages: List[MessageResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class EdgeResponse(BaseModel):
@@ -132,8 +131,7 @@ class EdgeResponse(BaseModel):
     condition_label: Optional[str]
     order: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RunSummary(BaseModel):
@@ -153,8 +151,7 @@ class RunSummary(BaseModel):
     input_state: Optional[Dict[str, Any]] = None
     output_state: Optional[Dict[str, Any]] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RunDetailResponse(BaseModel):
@@ -177,8 +174,7 @@ class RunDetailResponse(BaseModel):
     nodes: List[NodeExecutionResponse]
     edges: List[EdgeResponse]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RunGraphResponse(BaseModel):
@@ -209,8 +205,7 @@ class EvaluationResponse(BaseModel):
     is_automated: bool
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class IngestResponse(BaseModel):

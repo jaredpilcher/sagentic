@@ -18,8 +18,8 @@ from ..core.globals import set_extension_manager
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize DB tables
-init_db()
+# Initialize DB tables - moved to explicit migration/seed step to avoid Gunicorn worker race conditions
+# init_db()
 
 # --- Lifecycle ---
 @asynccontextmanager

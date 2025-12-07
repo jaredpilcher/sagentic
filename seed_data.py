@@ -2,17 +2,17 @@ import asyncio
 import uuid
 import random
 import json
+import os
+import sys
 from datetime import datetime, timedelta
-import requests
-from src.core.models import AgentStep, Prompt, ToolTrace
-from src.db.database import SessionLocal, init_db, Run, Step
-from src.core.service import TelemetryService
 
-# Initialize DB
-init_db()
+# Add src to path
+sys.path.append(os.getcwd())
+
+from src.db.database import SessionLocal, init_db
+from src.db.models import Run, NodeExecution, Message, Evaluation
 
 AGENTS = ["research-bot-v1", "coder-agent-alpha", "customer-support-bot"]
-ROLES = ["user", "assistant"]
 TOPICS = [
     "How do I reverse a linked list?",
     "Explain quantum computing",
@@ -21,211 +21,141 @@ TOPICS = [
     "What is the capital of France?"
 ]
 
-async def seed():
-    db = SessionLocal()
-    service = TelemetryService(db)
-    
-    print("Seeding data...")
-    
-    for i in range(10): # 10 Runs
-        run_id = str(uuid.uuid4())
-        agent_id = random.choice(AGENTS)
-        start_time = datetime.utcnow() - timedelta(days=random.randint(0, 7))
-        topic = random.choice(TOPICS)
-        
-        # Create run
-        run = Run(id=run_id, agent_id=agent_id, created_at=datetime.utcnow(), tags_json=json.dumps(["test-tag", "auto-generated"]))
-        db.add(run)
-        db.commit()
-        
-        print(f"Creating run {run_id} for {agent_id} on '{topic}'")
-        
-        # Add scores to this run
-        try:
-            requests.post("http://localhost:3000/api/scores", json={
-                "score_id": str(uuid.uuid4()),
-                "trace_id": run_id,
-                "name": "user_feedback",
-                "value": 1.0,
-                "comment": "Great response!",
-                "timestamp": datetime.utcnow().isoformat()
-            })
-        except Exception as e:
-            print(f"Failed to seed score: {e}")
+def generate_uuid():
+    return str(uuid.uuid4())
 
-        # Create steps
-        # 1. User Step
-        step1_id = str(uuid.uuid4())
-        step1 = AgentStep(
+def seed_run(db, agent_id, topic):
+    run_id = generate_uuid()
+    start_time = datetime.utcnow() - timedelta(days=random.randint(0, 7))
+    
+    # 1. Create Run
+    run = Run(
+        id=run_id,
+        agent_id=agent_id,
+        graph_id="agent-graph",
+        graph_version="v1",
+        status="completed",
+        started_at=start_time,
+        ended_at=start_time + timedelta(seconds=10),
+        total_tokens=500,
+        total_cost=0.015,
+        total_latency_ms=10000,
+        tags=["seed", "test"],
+        input_state={"messages": [{"role": "user", "content": topic}]},
+        output_state={"messages": [{"role": "assistant", "content": "Done."}]}
+    )
+    db.add(run)
+
+    # 2. Nodes & Messages
+    # Node 1: User Input
+    node1_id = generate_uuid()
+    node1 = NodeExecution(
+        id=node1_id,
+        run_id=run_id,
+        node_key="user_input",
+        node_type="input",
+        order=0,
+        status="completed",
+        started_at=start_time,
+        ended_at=start_time + timedelta(milliseconds=100),
+        latency_ms=100
+    )
+    db.add(node1)
+    
+    msg1 = Message(
+        id=generate_uuid(),
+        node_execution_id=node1_id,
+        order=0,
+        role="user",
+        content=topic,
+        input_tokens=10,
+        total_tokens=10
+    )
+    db.add(msg1)
+
+    # Node 2: Agent Thinking (Chain)
+    node2_id = generate_uuid()
+    node2 = NodeExecution(
+        id=node2_id,
+        run_id=run_id,
+        node_key="agent_reasoning",
+        node_type="chain",
+        order=1,
+        status="completed",
+        started_at=start_time + timedelta(milliseconds=200),
+        ended_at=start_time + timedelta(seconds=5),
+        latency_ms=4800
+    )
+    db.add(node2)
+    
+    msg2 = Message(
+        id=generate_uuid(),
+        node_execution_id=node2_id,
+        order=0,
+        role="assistant",
+        content="Thinking about the query...",
+        total_tokens=50,
+        model="gpt-4"
+    )
+    db.add(msg2)
+
+    # Node 3: Tool Call (Search)
+    if random.random() > 0.5:
+        node3_id = generate_uuid()
+        node3 = NodeExecution(
+            id=node3_id,
             run_id=run_id,
-            step_id=step1_id,
-            agent_id=agent_id,
-            timestamp=start_time,
-            role="user",
-            prompt=Prompt(user=topic),
-            response=None,
-            metadata={"session_id": "session_123"}
+            node_key="search_tool",
+            node_type="tool",
+            order=2,
+            status="completed",
+            started_at=start_time + timedelta(seconds=5),
+            ended_at=start_time + timedelta(seconds=7),
+            latency_ms=2000
         )
-        await service.ingest_step(step1)
+        db.add(node3)
         
-        # 2. Assistant Step (Thinking/Tool use)
-        step2_id = str(uuid.uuid4())
-        step2 = AgentStep(
-            run_id=run_id,
-            step_id=step2_id,
-            agent_id=agent_id,
-            timestamp=start_time + timedelta(seconds=2),
-            role="assistant",
-            prompt=Prompt(
-                system="You are a helpful assistant.",
-                assistant_context="User asked about " + topic,
-                tools_trace=[
-                    ToolTrace(name="search_web", args={"query": topic}, result_summary="Found 5 results")
-                ]
-            ),
-            response="I found some information. Let me summarize it.",
-            metadata={"model": "gpt-4-turbo", "tokens": 150}
+        msg3 = Message(
+            id=generate_uuid(),
+            node_execution_id=node3_id,
+            order=0,
+            role="tool",
+            content=json.dumps({"results": ["Result 1", "Result 2"]}),
+            tool_calls=[{"name": "search", "args": {"query": topic}}],
+            total_tokens=100
         )
-        await service.ingest_step(step2)
-        
-        # 3. Assistant Final Response
-        step3_id = str(uuid.uuid4())
-        step3 = AgentStep(
+        db.add(msg3)
+
+    # 3. Evaluation (Score)
+    if random.random() > 0.7:
+        eval = Evaluation(
+            id=generate_uuid(),
             run_id=run_id,
-            step_id=step3_id,
-            agent_id=agent_id,
-            timestamp=start_time + timedelta(seconds=5),
-            role="assistant",
-            prompt=Prompt(
-                system="You are a helpful assistant.",
-                assistant_context="Summarizing search results",
-            ),
-            response=f"Here is the answer to '{topic}': It is complex but fascinating...",
-            metadata={"model": "gpt-4-turbo", "tokens": 300}
+            evaluator="user",
+            score=1.0,
+            label="thumbs_up",
+            comment="Great answer!"
         )
-        await service.ingest_step(step3)
+        db.add(eval)
 
-    print("Seeding complete!")
-    db.close()
-
-def seed_spans(run_id: str):
-    # import uuid # Already imported at top
-    # from datetime import datetime, timedelta # Already imported at top
-    # import requests # Already imported at top
-
-    base_time = datetime.utcnow()
-    trace_id = run_id
-    
-    # Root Span (Agent)
-    root_span_id = str(uuid.uuid4())
-    root_start = base_time
-    root_end = base_time + timedelta(seconds=5)
-    
-    requests.post("http://localhost:3000/api/spans", json={
-        "span_id": root_span_id,
-        "trace_id": trace_id,
-        "parent_id": None,
-        "name": "Research Agent Execution",
-        "start_time": root_start.isoformat(),
-        "end_time": root_end.isoformat(),
-        "span_kind": "AGENT",
-        "attributes": {"agent_version": "1.0.0"},
-        "status_code": "OK"
-    })
-
-    # Child Span 1 (Chain)
-    chain_span_id = str(uuid.uuid4())
-    chain_start = root_start + timedelta(milliseconds=100)
-    chain_end = chain_start + timedelta(seconds=2)
-    
-    requests.post("http://localhost:3000/api/spans", json={
-        "span_id": chain_span_id,
-        "trace_id": trace_id,
-        "parent_id": root_span_id,
-        "name": "Thought Process",
-        "start_time": chain_start.isoformat(),
-        "end_time": chain_end.isoformat(),
-        "span_kind": "CHAIN",
-        "attributes": {"step": "planning"},
-        "status_code": "OK"
-    })
-
-    # Child Span 2 (LLM Call) inside Chain
-    llm_span_id = str(uuid.uuid4())
-    llm_start = chain_start + timedelta(milliseconds=200)
-    llm_end = llm_start + timedelta(seconds=1.5)
-    
-    requests.post("http://localhost:3000/api/spans", json={
-        "span_id": llm_span_id,
-        "trace_id": trace_id,
-        "parent_id": chain_span_id,
-        "name": "GPT-4 Completion",
-        "start_time": llm_start.isoformat(),
-        "end_time": llm_end.isoformat(),
-        "span_kind": "LLM",
-        "attributes": {"model": "gpt-4", "temperature": 0.7},
-        "status_code": "OK"
-    })
-
-    # Child Span 3 (Tool Call)
-    tool_span_id = str(uuid.uuid4())
-    tool_start = root_start + timedelta(seconds=3)
-    tool_end = tool_start + timedelta(seconds=1)
-    
-    requests.post("http://localhost:3000/api/spans", json={
-        "span_id": tool_span_id,
-        "trace_id": trace_id,
-        "parent_id": root_span_id,
-        "name": "Search Tool",
-        "start_time": tool_start.isoformat(),
-        "end_time": tool_end.isoformat(),
-        "span_kind": "TOOL",
-        "attributes": {"query": "latest AI news"},
-        "status_code": "OK"
-    })
-
-    print(f"Seeded spans for run {run_id}")
-
-def seed_scores(run_id: str):
-    import uuid
-    from datetime import datetime
-    
-    # Seed a user feedback score
-    requests.post("http://localhost:3000/api/scores", json={
-        "score_id": str(uuid.uuid4()),
-        "trace_id": run_id,
-        "name": "user_feedback",
-        "value": 1.0,
-        "comment": "Great response!",
-        "timestamp": datetime.utcnow().isoformat()
-    })
-    
-    # Seed an automated hallucination score
-    requests.post("http://localhost:3000/api/scores", json={
-        "score_id": str(uuid.uuid4()),
-        "trace_id": run_id,
-        "name": "hallucination_score",
-        "value": 0.05,
-        "comment": "Low probability of hallucination",
-        "timestamp": datetime.utcnow().isoformat()
-    })
-    
-    print(f"Seeded scores for run {run_id}")
-
+    print(f"Seeded Run: {run_id} ({topic})")
 
 if __name__ == "__main__":
-    # Create a new run for traces
-    run_id = str(uuid.uuid4())
-    requests.post("http://localhost:3000/api/steps", json={
-        "run_id": run_id,
-        "step_id": str(uuid.uuid4()),
-        "agent_id": "trace-demo-bot",
-        "timestamp": datetime.utcnow().isoformat(),
-        "role": "system",
-        "prompt": {"system": "You are a trace demo bot."},
-        "metadata": {}
-    })
+    print("Initializing Database...")
+    init_db()
     
-    seed_spans(run_id)
-    seed_scores(run_id)
-    asyncio.run(seed())
+    db = SessionLocal()
+    try:
+        print("Seeding Runs...")
+        for i in range(10):
+            agent = random.choice(AGENTS)
+            topic = random.choice(TOPICS)
+            seed_run(db, agent, topic)
+        
+        db.commit()
+        print("Seeding Complete.")
+    except Exception as e:
+        print(f"Seeding Failed: {e}")
+        db.rollback()
+    finally:
+        db.close()

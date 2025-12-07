@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..repositories.run_repository import RunRepository
 from ..db.models import Run, Message, NodeExecution, Edge, Evaluation
@@ -39,7 +39,7 @@ class RunService:
         # Better: keep DB session management here.
         
         run_id = trace.run_id or str(uuid.uuid4())
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         # 1. Upsert Logic
         existing = self.repo.get(run_id)
@@ -91,7 +91,7 @@ class RunService:
                 node_key=node_data.node_key,
                 node_type=node_data.node_type,
                 order=node_order,
-                status="completed" if not node_data.error else "failed",
+                status=node_data.status or ("completed" if not node_data.error else "failed"),
                 started_at=node_started_at,
                 ended_at=node_ended_at,
                 state_in=node_data.state_in,
