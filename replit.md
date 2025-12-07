@@ -282,6 +282,20 @@ Extensions can contribute widgets to the library via the `contributes.dashboard_
 Dashboard layout is persisted in localStorage and survives page refreshes.
 
 ## Recent Changes (Dec 7, 2025)
+- Enhanced Run Detail page with comprehensive metadata:
+  - Agent name with clickable link to view all runs for that agent
+  - Exact timestamp with relative time (e.g., "Dec 6, 2025 19:36:42 (about 10 hours ago)")
+  - Duration calculation and node count
+  - Error summary aggregating run errors and failed node errors
+  - Collapsible Run Metadata, Input State, and Output State sections
+  - Tags display
+- Added Agents system for agent-centric observability:
+  - Agents page listing all unique graph_ids with aggregated statistics
+  - Agent Detail page showing filtered runs for a specific agent
+  - API endpoint: `GET /api/agents` - List all agents with stats
+  - API endpoint: `GET /api/agents/{graph_id}` - Get specific agent stats
+  - Extension contribution point: `agent_actions` for agent-specific functionality
+- Reusable RunsList component for consistent run display across pages
 - Added "All Runs" page with full run history, search, and filtering
   - Search by run ID, graph name, or framework
   - Filter by status (completed/failed/running) and graph
@@ -293,7 +307,7 @@ Dashboard layout is persisted in localStorage and survives page refreshes.
 - Dashboard layout persisted in localStorage
 - Extension widgets auto-removed when extensions are disabled
 - Added VS Code-style Extension system with contribution points
-- Extensions can inject UI at: sidebar panels, dashboard widgets, run actions
+- Extensions can inject UI at: sidebar panels, dashboard widgets, run actions, agent_actions
 - Extensions can add backend API routes and serve frontend assets
 - Single zip package installation and removal
 - Enable/disable extensions dynamically updates UI (sidebar, widgets disappear)
