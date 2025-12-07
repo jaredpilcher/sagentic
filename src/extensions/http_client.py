@@ -119,7 +119,7 @@ class ExtensionHttpClient:
         
         if pattern_host.startswith('*.'):
             domain_pattern = pattern_host[2:]
-            if not (url_host == domain_pattern or url_host.endswith('.' + domain_pattern)):
+            if not url_host.endswith('.' + domain_pattern):
                 return False
         elif pattern_host != url_host:
             return False
