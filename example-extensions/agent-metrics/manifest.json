@@ -1,6 +1,6 @@
 {
     "name": "agent-metrics",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Analytics and metrics dashboard for agent performance",
     "author": "Sagentic",
     "backend_entry": "routes:register",
@@ -29,6 +29,50 @@
                 "priority": 10
             }
         ],
+        "pages": [
+            {
+                "id": "overview",
+                "path": "/",
+                "title": "Overview",
+                "icon": "Home",
+                "showInSidebar": false
+            },
+            {
+                "id": "settings",
+                "path": "settings",
+                "title": "Settings",
+                "icon": "Settings",
+                "showInSidebar": true
+            },
+            {
+                "id": "bookmarks",
+                "path": "bookmarks",
+                "title": "Bookmarks",
+                "icon": "Bookmark",
+                "showInSidebar": true
+            },
+            {
+                "id": "trends",
+                "path": "trends",
+                "title": "Trends",
+                "icon": "TrendingUp",
+                "showInSidebar": true
+            }
+        ],
+        "modals": [
+            {
+                "id": "bookmark-run",
+                "title": "Bookmark Run",
+                "width": "medium",
+                "height": "auto"
+            },
+            {
+                "id": "run-details",
+                "title": "Quick View",
+                "width": "large",
+                "height": "medium"
+            }
+        ],
         "dashboard_widgets": [
             {
                 "id": "metrics-summary",
@@ -43,14 +87,25 @@
             {
                 "id": "view-metrics",
                 "title": "View Metrics",
-                "icon": "BarChart3"
+                "icon": "BarChart3",
+                "actionType": "navigate",
+                "navigateTo": "/extensions/agent-metrics"
+            },
+            {
+                "id": "bookmark-run",
+                "title": "Bookmark",
+                "icon": "Bookmark",
+                "actionType": "modal",
+                "modal": "bookmark-run"
             }
         ],
         "agent_actions": [
             {
                 "id": "view-agent-metrics",
                 "title": "View Metrics",
-                "icon": "BarChart3"
+                "icon": "BarChart3",
+                "actionType": "navigate",
+                "navigateTo": "/extensions/agent-metrics"
             }
         ]
     }

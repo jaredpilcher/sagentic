@@ -1146,6 +1146,116 @@ def get_extension_permissions(
     }
 
 
+@app.get("/api/extensions/{extension_name}/pages/{page_path:path}")
+def get_extension_page(
+    extension_name: str,
+    page_path: str,
+    db: Session = Depends(get_db)
+):
+    """Get page content for an extension.
+    
+    Extensions can define multiple pages in their manifest.
+    Each page can return structured data for rendering.
+    """
+    ext = db.query(Extension).filter(Extension.name == extension_name).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    if ext.status != "enabled":
+        raise HTTPException(status_code=404, detail="Extension is not enabled")
+    
+    pages = ext.manifest.get("contributes", {}).get("pages", [])
+    
+    matched_page = None
+    for page in pages:
+        page_route = page.get("path", "").strip("/")
+        if page_route == page_path or page_route == page_path.rstrip("/"):
+            matched_page = page
+            break
+    
+    if not matched_page and page_path in ["", "index", "/"]:
+        return {
+            "title": ext.name.replace("-", " ").title(),
+            "navigation": [
+                {"id": p["id"], "path": "/" + p.get("path", "").strip("/"), "title": p["title"], "icon": p.get("icon")}
+                for p in pages
+            ] if pages else None
+        }
+    
+    if matched_page:
+        return {
+            "title": matched_page.get("title", ""),
+            "pageId": matched_page.get("id"),
+            "navigation": [
+                {"id": p["id"], "path": "/" + p.get("path", "").strip("/"), "title": p["title"], "icon": p.get("icon")}
+                for p in pages
+            ] if pages else None
+        }
+    
+    raise HTTPException(status_code=404, detail=f"Page '{page_path}' not found in extension")
+
+
+@app.post("/api/extensions/{extension_name}/modals/{modal_id}")
+def get_extension_modal_content(
+    extension_name: str,
+    modal_id: str,
+    context: dict = {},
+    db: Session = Depends(get_db)
+):
+    """Get content for an extension modal.
+    
+    Modals are defined in the extension manifest and can return
+    structured content including HTML, data, and action buttons.
+    """
+    ext = db.query(Extension).filter(Extension.name == extension_name).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    if ext.status != "enabled":
+        raise HTTPException(status_code=404, detail="Extension is not enabled")
+    
+    modals = ext.manifest.get("contributes", {}).get("modals", [])
+    
+    matched_modal = None
+    for modal in modals:
+        if modal.get("id") == modal_id:
+            matched_modal = modal
+            break
+    
+    if not matched_modal:
+        raise HTTPException(status_code=404, detail=f"Modal '{modal_id}' not found in extension")
+    
+    return {
+        "title": matched_modal.get("title", ""),
+        "data": context,
+        "actions": [
+            {"id": "close", "label": "Close"}
+        ]
+    }
+
+
+@app.post("/api/extensions/{extension_name}/modals/{modal_id}/actions/{action_id}")
+def execute_extension_modal_action(
+    extension_name: str,
+    modal_id: str,
+    action_id: str,
+    context: dict = {},
+    db: Session = Depends(get_db)
+):
+    """Execute an action from an extension modal.
+    
+    Returns instructions for what the frontend should do next.
+    """
+    ext = db.query(Extension).filter(Extension.name == extension_name).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    if action_id == "close":
+        return {"close": True}
+    
+    return {"close": True, "message": f"Action '{action_id}' executed"}
+
+
 @app.on_event("startup")
 async def load_enabled_extensions():
     """Load backend code for all enabled extensions on startup."""

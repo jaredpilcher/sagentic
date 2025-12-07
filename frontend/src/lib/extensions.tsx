@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 
 export interface SidebarPanelContribution {
     id: string
@@ -6,6 +6,7 @@ export interface SidebarPanelContribution {
     icon?: string
     priority?: number
     component?: string
+    path?: string
 }
 
 export interface DashboardWidgetContribution {
@@ -18,12 +19,33 @@ export interface DashboardWidgetContribution {
     component?: string
 }
 
+export interface ExtensionPageContribution {
+    id: string
+    path: string
+    title: string
+    icon?: string
+    showInSidebar?: boolean
+}
+
+export interface ExtensionModalContribution {
+    id: string
+    title: string
+    width?: 'small' | 'medium' | 'large' | 'full'
+    height?: 'auto' | 'small' | 'medium' | 'large' | 'full'
+}
+
+export type ActionType = 'navigate' | 'modal' | 'api'
+
 export interface RunActionContribution {
     id: string
     title: string
     icon?: string
     when?: string
     handler?: string
+    actionType?: ActionType
+    target?: string
+    modal?: string
+    navigateTo?: string
 }
 
 export interface AgentActionContribution {
@@ -32,6 +54,10 @@ export interface AgentActionContribution {
     icon?: string
     when?: string
     handler?: string
+    actionType?: ActionType
+    target?: string
+    modal?: string
+    navigateTo?: string
 }
 
 export interface ContextMenuContribution {
@@ -46,6 +72,8 @@ export interface ContextMenuContribution {
 export interface ExtensionContributes {
     sidebar_panels?: SidebarPanelContribution[]
     dashboard_widgets?: DashboardWidgetContribution[]
+    pages?: ExtensionPageContribution[]
+    modals?: ExtensionModalContribution[]
     run_actions?: RunActionContribution[]
     agent_actions?: AgentActionContribution[]
     node_actions?: RunActionContribution[]
@@ -64,6 +92,16 @@ export interface ExtensionManifest {
     api_base_url: string
 }
 
+export interface ModalState {
+    isOpen: boolean
+    extensionName: string | null
+    modalId: string | null
+    title: string
+    width: 'small' | 'medium' | 'large' | 'full'
+    height: 'auto' | 'small' | 'medium' | 'large' | 'full'
+    context: Record<string, unknown>
+}
+
 interface ExtensionContextType {
     extensions: ExtensionManifest[]
     loading: boolean
@@ -73,7 +111,23 @@ interface ExtensionContextType {
     getDashboardWidgets: () => Array<DashboardWidgetContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
     getRunActions: () => Array<RunActionContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
     getAgentActions: () => Array<AgentActionContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
+    getExtensionPages: (extensionName: string) => Array<ExtensionPageContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
+    getExtensionModals: (extensionName: string) => Array<ExtensionModalContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
+    getAllPages: () => Array<ExtensionPageContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
     executeAction: (extensionName: string, actionId: string, context: Record<string, unknown>) => Promise<unknown>
+    modalState: ModalState
+    openModal: (extensionName: string, modalId: string, context?: Record<string, unknown>) => void
+    closeModal: () => void
+}
+
+const defaultModalState: ModalState = {
+    isOpen: false,
+    extensionName: null,
+    modalId: null,
+    title: '',
+    width: 'medium',
+    height: 'auto',
+    context: {}
 }
 
 const ExtensionContext = createContext<ExtensionContextType | null>(null)
@@ -82,6 +136,7 @@ export function ExtensionProvider({ children }: { children: ReactNode }) {
     const [extensions, setExtensions] = useState<ExtensionManifest[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [modalState, setModalState] = useState<ModalState>(defaultModalState)
 
     const refresh = useCallback(async () => {
         try {
@@ -170,6 +225,75 @@ export function ExtensionProvider({ children }: { children: ReactNode }) {
         return actions
     }, [extensions])
 
+    const getExtensionPages = useCallback((extensionName: string) => {
+        const pages: Array<ExtensionPageContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }> = []
+        const ext = extensions.find(e => e.name === extensionName)
+        if (ext?.contributes?.pages) {
+            for (const page of ext.contributes.pages) {
+                pages.push({
+                    ...page,
+                    extensionId: ext.id,
+                    extensionName: ext.name,
+                    apiBaseUrl: ext.api_base_url
+                })
+            }
+        }
+        return pages
+    }, [extensions])
+
+    const getExtensionModals = useCallback((extensionName: string) => {
+        const modals: Array<ExtensionModalContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }> = []
+        const ext = extensions.find(e => e.name === extensionName)
+        if (ext?.contributes?.modals) {
+            for (const modal of ext.contributes.modals) {
+                modals.push({
+                    ...modal,
+                    extensionId: ext.id,
+                    extensionName: ext.name,
+                    apiBaseUrl: ext.api_base_url
+                })
+            }
+        }
+        return modals
+    }, [extensions])
+
+    const getAllPages = useCallback(() => {
+        const pages: Array<ExtensionPageContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }> = []
+        for (const ext of extensions) {
+            if (ext.contributes?.pages) {
+                for (const page of ext.contributes.pages) {
+                    pages.push({
+                        ...page,
+                        extensionId: ext.id,
+                        extensionName: ext.name,
+                        apiBaseUrl: ext.api_base_url
+                    })
+                }
+            }
+        }
+        return pages
+    }, [extensions])
+
+    const openModal = useCallback((extensionName: string, modalId: string, context: Record<string, unknown> = {}) => {
+        const ext = extensions.find(e => e.name === extensionName)
+        const modal = ext?.contributes?.modals?.find(m => m.id === modalId)
+        if (modal) {
+            setModalState({
+                isOpen: true,
+                extensionName,
+                modalId,
+                title: modal.title,
+                width: modal.width || 'medium',
+                height: modal.height || 'auto',
+                context
+            })
+        }
+    }, [extensions])
+
+    const closeModal = useCallback(() => {
+        setModalState(defaultModalState)
+    }, [])
+
     const executeAction = useCallback(async (extensionName: string, actionId: string, context: Record<string, unknown>) => {
         const res = await fetch(`/api/extensions/${extensionName}/actions/${actionId}`, {
             method: 'POST',
@@ -190,7 +314,13 @@ export function ExtensionProvider({ children }: { children: ReactNode }) {
             getDashboardWidgets,
             getRunActions,
             getAgentActions,
-            executeAction
+            getExtensionPages,
+            getExtensionModals,
+            getAllPages,
+            executeAction,
+            modalState,
+            openModal,
+            closeModal
         }}>
             {children}
         </ExtensionContext.Provider>

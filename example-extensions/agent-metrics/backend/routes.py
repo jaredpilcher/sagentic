@@ -238,6 +238,180 @@ def register(router: APIRouter):
         
         return {"success": True, "count": len(bookmarks)}
     
+    @router.get("/pages/settings")
+    def get_settings_page():
+        """Return structured data for the settings page."""
+        from src.extensions.storage import ExtensionStorage
+        
+        storage = ExtensionStorage(EXTENSION_NAME)
+        return {
+            "title": "Settings",
+            "sections": [
+                {
+                    "id": "preferences",
+                    "title": "Preferences",
+                    "type": "stats",
+                    "data": {
+                        "default_period_days": storage.get("default_period_days", 7),
+                        "refresh_interval_seconds": storage.get("refresh_interval_seconds", 60),
+                        "show_cost_data": storage.get("show_cost_data", True)
+                    }
+                }
+            ]
+        }
+    
+    @router.get("/pages/bookmarks")
+    def get_bookmarks_page():
+        """Return structured data for the bookmarks page."""
+        from src.extensions.storage import ExtensionStorage
+        
+        storage = ExtensionStorage(EXTENSION_NAME)
+        bookmarks = storage.get("bookmarks", [])
+        
+        if not bookmarks:
+            return {
+                "title": "Bookmarks",
+                "sections": [
+                    {
+                        "id": "empty",
+                        "title": "No Bookmarks",
+                        "type": "custom",
+                        "data": "<p class='text-muted-foreground'>You haven't bookmarked any runs yet. Use the 'Bookmark' action on a run to save it here.</p>"
+                    }
+                ]
+            }
+        
+        return {
+            "title": "Bookmarks",
+            "sections": [
+                {
+                    "id": "bookmarks-list",
+                    "title": f"Bookmarked Runs ({len(bookmarks)})",
+                    "type": "table",
+                    "data": [
+                        {
+                            "Run ID": b.get("run_id", "")[:8] + "...",
+                            "Note": b.get("note", "No note"),
+                            "Bookmarked": b.get("bookmarked_at", "")[:10] if b.get("bookmarked_at") else ""
+                        }
+                        for b in bookmarks
+                    ]
+                }
+            ]
+        }
+    
+    @router.get("/pages/trends")
+    def get_trends_page():
+        """Return structured data for the trends page."""
+        from src.db.database import SessionLocal
+        from src.db.models import Run
+        
+        db = SessionLocal()
+        try:
+            cutoff_7d = datetime.utcnow() - timedelta(days=7)
+            cutoff_14d = datetime.utcnow() - timedelta(days=14)
+            
+            runs_last_7d = db.query(func.count(Run.id)).filter(Run.started_at >= cutoff_7d).scalar() or 0
+            runs_prev_7d = db.query(func.count(Run.id)).filter(
+                Run.started_at >= cutoff_14d,
+                Run.started_at < cutoff_7d
+            ).scalar() or 0
+            
+            tokens_last_7d = db.query(func.sum(Run.total_tokens)).filter(Run.started_at >= cutoff_7d).scalar() or 0
+            tokens_prev_7d = db.query(func.sum(Run.total_tokens)).filter(
+                Run.started_at >= cutoff_14d,
+                Run.started_at < cutoff_7d
+            ).scalar() or 0
+            
+            cost_last_7d = db.query(func.sum(Run.total_cost)).filter(Run.started_at >= cutoff_7d).scalar() or 0
+            cost_prev_7d = db.query(func.sum(Run.total_cost)).filter(
+                Run.started_at >= cutoff_14d,
+                Run.started_at < cutoff_7d
+            ).scalar() or 0
+            
+            def calc_trend(current, previous):
+                if previous == 0:
+                    return "+100%" if current > 0 else "0%"
+                change = ((current - previous) / previous) * 100
+                return f"+{change:.1f}%" if change >= 0 else f"{change:.1f}%"
+            
+            return {
+                "title": "Trends",
+                "sections": [
+                    {
+                        "id": "week-over-week",
+                        "title": "Week over Week Comparison",
+                        "type": "stats",
+                        "data": {
+                            "runs_this_week": runs_last_7d,
+                            "runs_last_week": runs_prev_7d,
+                            "runs_trend": calc_trend(runs_last_7d, runs_prev_7d),
+                            "tokens_this_week": tokens_last_7d,
+                            "tokens_last_week": tokens_prev_7d,
+                            "tokens_trend": calc_trend(tokens_last_7d, tokens_prev_7d),
+                            "cost_this_week": round(float(cost_last_7d), 4),
+                            "cost_last_week": round(float(cost_prev_7d), 4),
+                            "cost_trend": calc_trend(float(cost_last_7d), float(cost_prev_7d))
+                        }
+                    }
+                ]
+            }
+        finally:
+            db.close()
+    
+    @router.post("/modals/bookmark-run")
+    def handle_bookmark_modal(context: dict):
+        """Handle the bookmark modal content."""
+        run_id = context.get("run_id", "")
+        graph_id = context.get("graph_id", "Unknown")
+        
+        return {
+            "title": "Bookmark Run",
+            "html": f"""
+                <div class="space-y-4">
+                    <p>Add a bookmark for this run to review later.</p>
+                    <div>
+                        <label class="text-sm text-muted-foreground">Run ID</label>
+                        <p class="font-mono text-sm">{run_id}</p>
+                    </div>
+                    <div>
+                        <label class="text-sm text-muted-foreground">Agent</label>
+                        <p>{graph_id}</p>
+                    </div>
+                </div>
+            """,
+            "data": {"run_id": run_id, "graph_id": graph_id},
+            "actions": [
+                {"id": "cancel", "label": "Cancel"},
+                {"id": "save", "label": "Save Bookmark", "primary": True}
+            ]
+        }
+    
+    @router.post("/modals/bookmark-run/actions/save")
+    def save_bookmark_from_modal(context: dict):
+        """Save a bookmark from the modal."""
+        from src.extensions.storage import ExtensionStorage
+        
+        storage = ExtensionStorage(EXTENSION_NAME)
+        run_id = context.get("run_id")
+        
+        if run_id:
+            bookmarks = storage.get("bookmarks", [])
+            if not any(b.get("run_id") == run_id for b in bookmarks):
+                bookmarks.append({
+                    "run_id": run_id,
+                    "note": f"Bookmarked from {context.get('graph_id', 'unknown')}",
+                    "bookmarked_at": datetime.utcnow().isoformat()
+                })
+                storage.set("bookmarks", bookmarks)
+        
+        return {"close": True, "message": "Bookmark saved!"}
+    
+    @router.post("/modals/bookmark-run/actions/cancel")
+    def cancel_bookmark_modal(context: dict):
+        """Cancel the bookmark modal."""
+        return {"close": True}
+    
     def cleanup():
         """Cleanup function called when extension is unloaded."""
         pass

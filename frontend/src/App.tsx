@@ -8,6 +8,7 @@ import Evaluations from './pages/Evaluations'
 import Extensions from './pages/Extensions'
 import ExtensionPanel from './pages/ExtensionPanel'
 import Layout from './components/Layout'
+import ExtensionModal from './components/ExtensionModal'
 import { ExtensionProvider } from './lib/extensions'
 
 function App() {
@@ -23,8 +24,10 @@ function App() {
           <Route path="/evaluations" element={<Evaluations />} />
           <Route path="/extensions" element={<Extensions />} />
           <Route path="/extensions/:extensionName" element={<ExtensionPanel />} />
+          <Route path="/extensions/:extensionName/*" element={<ExtensionPanel />} />
         </Routes>
       </Layout>
+      <ExtensionModal />
     </ExtensionProvider>
   )
 }
