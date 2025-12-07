@@ -75,6 +75,70 @@ curl -X POST http://localhost:3000/api/traces \
   }'
 ```
 
+## Extension System
+
+The platform supports a plugin/extension system for adding custom functionality:
+
+### Extension Package Format
+Extensions are zip files with the following structure:
+```
+extension.zip/
+├── manifest.json      # Required: name, version, description
+├── backend/           # Optional: Python backend code
+│   └── routes.py      # Exports register(router) function
+└── frontend/          # Optional: Frontend assets
+    └── index.html     # Frontend entry point
+```
+
+### manifest.json
+```json
+{
+    "name": "my-extension",
+    "version": "1.0.0",
+    "description": "Description of the extension",
+    "author": "Author Name",
+    "backend_entry": "routes:register",
+    "frontend_entry": "index.html"
+}
+```
+
+### Extension API Endpoints
+- `GET /api/extensions` - List installed extensions
+- `POST /api/extensions/install` - Upload and install a zip package
+- `DELETE /api/extensions/{id}` - Uninstall an extension
+- `PATCH /api/extensions/{id}/status` - Enable/disable extension
+- `GET /api/extensions/{id}` - Get extension details
+- `GET /api/extensions/frontend-manifest` - Get frontend extension manifest
+
+### Backend Extensions
+Backend extensions register routes with FastAPI:
+```python
+def register(router):
+    @router.get("/my-endpoint")
+    def my_endpoint():
+        return {"message": "Hello from extension"}
+    
+    def cleanup():
+        pass  # Optional cleanup on unload
+    
+    return cleanup
+```
+
+Routes are mounted at `/api/extensions/{extension_name}/...`
+
+### Example Extension
+See `example-extensions/agent-metrics/` for a complete example that adds:
+- `/api/extensions/agent-metrics/stats` - Aggregate statistics
+- `/api/extensions/agent-metrics/daily` - Daily metrics breakdown
+- `/api/extensions/agent-metrics/graphs` - Per-graph statistics
+
+## Recent Changes (Dec 7, 2025)
+- Added Extension/Plugin management system
+- Extensions can add backend API routes and frontend components
+- Single zip package installation and removal
+- Enable/disable extensions without uninstalling
+- Created example agent-metrics extension
+
 ## Recent Changes (Dec 6, 2025)
 - Transformed to LangGraph-focused observability platform
 - Removed deprecated features: Playground, Prompts, Datasets, Compare
@@ -84,8 +148,9 @@ curl -X POST http://localhost:3000/api/traces \
 - Built MCP server with ingest_trace, list_runs, get_run tools
 - Created Dashboard with workflow metrics
 - Created Run Detail page with state diff and message viewer
+- Mobile-friendly UI with collapsible sidebar, bottom navigation
 
 ## Database
 - PostgreSQL (Neon-backed on Replit)
 - Managed with Alembic migrations
-- Tables: runs, node_executions, messages, edges, evaluations
+- Tables: runs, node_executions, messages, edges, evaluations, extensions

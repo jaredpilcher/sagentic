@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, MessageSquare, Activity, Menu, X } from 'lucide-react'
+import { LayoutDashboard, MessageSquare, Activity, Menu, X, Package } from 'lucide-react'
 import { cn } from '../lib/utils'
 
 const getIsMobile = () => typeof window !== 'undefined' && window.innerWidth < 768
@@ -56,6 +56,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <nav className="px-3 md:px-4 space-y-1">
                     <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
                     <NavItem to="/evaluations" icon={MessageSquare} label="Evaluations" />
+                    <NavItem to="/extensions" icon={Package} label="Extensions" />
                 </nav>
                 <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -91,7 +92,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             {isMobile && (
                 <nav className="fixed bottom-0 left-0 right-0 h-16 bg-card/95 backdrop-blur-xl border-t border-border z-30 flex items-center justify-around px-4 safe-area-pb">
                     <MobileNavItem to="/" icon={LayoutDashboard} label="Dashboard" />
-                    <MobileNavItem to="/evaluations" icon={MessageSquare} label="Evaluations" />
+                    <MobileNavItem to="/evaluations" icon={MessageSquare} label="Evals" />
+                    <MobileNavItem to="/extensions" icon={Package} label="Extensions" />
                 </nav>
             )}
         </div>

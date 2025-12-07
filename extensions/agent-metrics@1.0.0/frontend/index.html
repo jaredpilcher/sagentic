@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Metrics - Extension Preview</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0f0f0f;
+            color: #e5e5e5;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 { color: #60a5fa; }
+        .card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 10px 0;
+        }
+        .stat { font-size: 2em; font-weight: bold; color: #fff; }
+        .label { color: #888; font-size: 0.9em; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
+    </style>
+</head>
+<body>
+    <h1>Agent Metrics Dashboard</h1>
+    <p>This extension adds analytics endpoints for monitoring agent performance.</p>
+    
+    <h2>Available API Endpoints</h2>
+    <div class="card">
+        <h3>GET /api/extensions/agent-metrics/stats</h3>
+        <p>Get aggregate statistics for the specified period.</p>
+    </div>
+    <div class="card">
+        <h3>GET /api/extensions/agent-metrics/daily</h3>
+        <p>Get daily breakdown of metrics.</p>
+    </div>
+    <div class="card">
+        <h3>GET /api/extensions/agent-metrics/graphs</h3>
+        <p>Get statistics grouped by graph_id.</p>
+    </div>
+    
+    <h2>Live Stats (Last 7 Days)</h2>
+    <div id="stats" class="grid"></div>
+    
+    <script>
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/extensions/agent-metrics/stats?days=7');
+                const data = await res.json();
+                const container = document.getElementById('stats');
+                container.innerHTML = `
+                    <div class="card"><div class="stat">${data.total_runs}</div><div class="label">Total Runs</div></div>
+                    <div class="card"><div class="stat">${data.completion_rate}%</div><div class="label">Success Rate</div></div>
+                    <div class="card"><div class="stat">${data.total_tokens}</div><div class="label">Tokens Used</div></div>
+                    <div class="card"><div class="stat">$${data.total_cost}</div><div class="label">Total Cost</div></div>
+                    <div class="card"><div class="stat">${data.avg_latency_ms}ms</div><div class="label">Avg Latency</div></div>
+                    <div class="card"><div class="stat">${data.unique_graphs}</div><div class="label">Unique Graphs</div></div>
+                `;
+            } catch (e) {
+                document.getElementById('stats').innerHTML = '<div class="card">Error loading stats. Extension may not be installed.</div>';
+            }
+        }
+        loadStats();
+    </script>
+</body>
+</html>

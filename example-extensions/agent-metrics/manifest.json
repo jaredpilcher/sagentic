@@ -1,0 +1,21 @@
+{
+    "name": "agent-metrics",
+    "version": "1.0.0",
+    "description": "Analytics and metrics dashboard for agent performance",
+    "author": "Sagentic",
+    "backend_entry": "routes:register",
+    "frontend_entry": "index.html",
+    "nav_items": [
+        {
+            "label": "Metrics",
+            "path": "/metrics",
+            "icon": "chart"
+        }
+    ],
+    "routes": [
+        {
+            "path": "/metrics",
+            "component": "MetricsDashboard"
+        }
+    ]
+}

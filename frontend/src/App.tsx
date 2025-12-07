@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import RunDetail from './pages/RunDetail'
 import Evaluations from './pages/Evaluations'
+import Extensions from './pages/Extensions'
 import Layout from './components/Layout'
 
 function App() {
@@ -11,6 +12,7 @@ function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/runs/:runId" element={<RunDetail />} />
         <Route path="/evaluations" element={<Evaluations />} />
+        <Route path="/extensions" element={<Extensions />} />
       </Routes>
     </Layout>
   )

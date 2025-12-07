@@ -1,12 +1,14 @@
 import os
+import sys
 import json
 import shutil
 import zipfile
 import tempfile
 import importlib.util
 from pathlib import Path
-from typing import Optional, Dict, Any, Callable
+from typing import Optional, Dict, Any, Callable, List
 from fastapi import FastAPI, APIRouter
+from starlette.routing import Route, Mount
 
 EXTENSIONS_DIR = Path(os.environ.get("EXTENSIONS_DIR", "extensions"))
 
@@ -148,11 +150,28 @@ class ExtensionManager:
         except Exception as e:
             return False, f"Failed to load backend: {str(e)}"
     
+    def _remove_routes_by_prefix(self, routes_list: list, prefix: str) -> None:
+        """Remove routes matching the given prefix from a routes list."""
+        routes_to_remove = []
+        for route in routes_list:
+            if isinstance(route, Mount):
+                if route.path == prefix or route.path.startswith(prefix):
+                    routes_to_remove.append(route)
+            elif isinstance(route, Route):
+                if hasattr(route, 'path') and route.path.startswith(prefix):
+                    routes_to_remove.append(route)
+        
+        for route in routes_to_remove:
+            routes_list.remove(route)
+    
     def unload_backend(self, extension_id: str) -> tuple[bool, str]:
         if extension_id not in self.loaded_extensions:
             return True, "Extension not loaded"
         
         try:
+            ext_info = self.loaded_extensions[extension_id]
+            ext_name = ext_info.get("name", "")
+            
             if extension_id in self.cleanup_handlers:
                 try:
                     self.cleanup_handlers[extension_id]()
@@ -161,9 +180,20 @@ class ExtensionManager:
                 del self.cleanup_handlers[extension_id]
             
             if extension_id in self.extension_routers:
-                router = self.extension_routers[extension_id]
-                self.app.routes = [r for r in self.app.routes if getattr(r, 'router', None) != router]
+                prefix = f"/api/extensions/{ext_name}"
+                
+                self._remove_routes_by_prefix(self.app.routes, prefix)
+                
+                if hasattr(self.app, 'router') and hasattr(self.app.router, 'routes'):
+                    self._remove_routes_by_prefix(self.app.router.routes, prefix)
+                
                 del self.extension_routers[extension_id]
+            
+            module = ext_info.get("module")
+            if module:
+                module_name = getattr(module, '__name__', None)
+                if module_name and module_name in sys.modules:
+                    del sys.modules[module_name]
             
             del self.loaded_extensions[extension_id]
             
