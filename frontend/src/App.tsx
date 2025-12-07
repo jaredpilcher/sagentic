@@ -9,26 +9,28 @@ import Extensions from './pages/Extensions'
 import ExtensionPanel from './pages/ExtensionPanel'
 import Layout from './components/Layout'
 import ExtensionModal from './components/ExtensionModal'
-import { ExtensionProvider } from './lib/extensions'
+import { ExtensionRegistryProvider, ExtensionModalProvider } from './lib/extensions'
 
 function App() {
   return (
-    <ExtensionProvider>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/agents" element={<Agents />} />
-          <Route path="/agents/:graphId" element={<AgentDetail />} />
-          <Route path="/runs" element={<Runs />} />
-          <Route path="/runs/:runId" element={<RunDetail />} />
-          <Route path="/evaluations" element={<Evaluations />} />
-          <Route path="/extensions" element={<Extensions />} />
-          <Route path="/extensions/:extensionName" element={<ExtensionPanel />} />
-          <Route path="/extensions/:extensionName/*" element={<ExtensionPanel />} />
-        </Routes>
-      </Layout>
-      <ExtensionModal />
-    </ExtensionProvider>
+    <ExtensionRegistryProvider>
+      <ExtensionModalProvider>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/agents" element={<Agents />} />
+            <Route path="/agents/:graphId" element={<AgentDetail />} />
+            <Route path="/runs" element={<Runs />} />
+            <Route path="/runs/:runId" element={<RunDetail />} />
+            <Route path="/evaluations" element={<Evaluations />} />
+            <Route path="/extensions" element={<Extensions />} />
+            <Route path="/extensions/:extensionName" element={<ExtensionPanel />} />
+            <Route path="/extensions/:extensionName/*" element={<ExtensionPanel />} />
+          </Routes>
+        </Layout>
+        <ExtensionModal />
+      </ExtensionModalProvider>
+    </ExtensionRegistryProvider>
   )
 }
 

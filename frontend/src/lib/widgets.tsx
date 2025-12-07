@@ -1,18 +1,5 @@
-import { Activity, CheckCircle, XCircle, Clock, DollarSign, Zap, Bot, TrendingUp } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
-
-export interface WidgetDefinition {
-    id: string
-    title: string
-    description: string
-    icon: LucideIcon
-    category: 'metrics' | 'runs' | 'extension'
-    defaultSize: { w: number; h: number }
-    minSize?: { w: number; h: number }
-    component: string
-    extensionName?: string
-    extensionApiBaseUrl?: string
-}
+import { widgetRegistry, WidgetDefinition } from './widget-registry'
+export type { WidgetDefinition }
 
 export interface WidgetInstance {
     id: string
@@ -28,98 +15,7 @@ export interface DashboardConfig {
     version: number
 }
 
-export const BUILT_IN_WIDGETS: WidgetDefinition[] = [
-    {
-        id: 'total-runs',
-        title: 'Total Runs',
-        description: 'Total runs',
-        icon: Activity,
-        category: 'metrics',
-        defaultSize: { w: 2, h: 3 },
-        minSize: { w: 2, h: 3 },
-        component: 'TotalRunsWidget'
-    },
-    {
-        id: 'completed-runs',
-        title: 'Completed',
-        description: 'Completed runs',
-        icon: CheckCircle,
-        category: 'metrics',
-        defaultSize: { w: 2, h: 3 },
-        minSize: { w: 2, h: 3 },
-        component: 'CompletedRunsWidget'
-    },
-    {
-        id: 'failed-runs',
-        title: 'Failed',
-        description: 'Failed runs',
-        icon: XCircle,
-        category: 'metrics',
-        defaultSize: { w: 2, h: 3 },
-        minSize: { w: 2, h: 3 },
-        component: 'FailedRunsWidget'
-    },
-    {
-        id: 'avg-latency',
-        title: 'Avg Latency',
-        description: 'Average speed',
-        icon: Clock,
-        category: 'metrics',
-        defaultSize: { w: 2, h: 3 },
-        minSize: { w: 2, h: 3 },
-        component: 'AvgLatencyWidget'
-    },
-    {
-        id: 'total-cost',
-        title: 'Total Cost',
-        description: 'All costs',
-        icon: DollarSign,
-        category: 'metrics',
-        defaultSize: { w: 2, h: 3 },
-        minSize: { w: 2, h: 3 },
-        component: 'TotalCostWidget'
-    },
-    {
-        id: 'total-tokens',
-        title: 'Tokens',
-        description: 'Tokens used',
-        icon: Zap,
-        category: 'metrics',
-        defaultSize: { w: 2, h: 3 },
-        minSize: { w: 2, h: 3 },
-        component: 'TotalTokensWidget'
-    },
-    {
-        id: 'unique-graphs',
-        title: 'Graphs',
-        description: 'Unique graphs',
-        icon: Bot,
-        category: 'metrics',
-        defaultSize: { w: 2, h: 3 },
-        minSize: { w: 2, h: 3 },
-        component: 'UniqueGraphsWidget'
-    },
-    {
-        id: 'total-nodes',
-        title: 'Nodes',
-        description: 'Total nodes',
-        icon: Activity,
-        category: 'metrics',
-        defaultSize: { w: 2, h: 3 },
-        minSize: { w: 2, h: 3 },
-        component: 'TotalNodesWidget'
-    },
-    {
-        id: 'recent-runs',
-        title: 'Recent Runs',
-        description: 'Latest runs',
-        icon: TrendingUp,
-        category: 'runs',
-        defaultSize: { w: 6, h: 6 },
-        minSize: { w: 3, h: 4 },
-        component: 'RecentRunsWidget'
-    }
-]
+export const BUILT_IN_WIDGETS = widgetRegistry.getAll()
 
 const STORAGE_KEY = 'sagentic-dashboard-config'
 
@@ -169,5 +65,7 @@ export function generateWidgetInstanceId(): string {
 }
 
 export function findWidgetDefinition(widgetId: string, extensionWidgets: WidgetDefinition[] = []): WidgetDefinition | undefined {
-    return BUILT_IN_WIDGETS.find(w => w.id === widgetId) || extensionWidgets.find(w => w.id === widgetId)
+    // Check registry first (User might have registered generic ones)
+    // Then check extension widgets passed in
+    return widgetRegistry.get(widgetId) || extensionWidgets.find(w => w.id === widgetId)
 }
