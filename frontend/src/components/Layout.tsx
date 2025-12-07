@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, MessageSquare, Activity, Menu, X, Package, BarChart3, Settings, Zap, Database, FileText, Users, Shield } from 'lucide-react'
+import { LayoutDashboard, MessageSquare, Activity, Menu, X, Package, BarChart3, Settings, Zap, Database, FileText, Users, Shield, History } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useExtensions } from '../lib/extensions'
 
@@ -63,6 +63,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </div>
                 <nav className="px-3 md:px-4 space-y-1">
                     <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
+                    <NavItem to="/runs" icon={History} label="All Runs" />
                     <NavItem to="/evaluations" icon={MessageSquare} label="Evaluations" />
                     
                     {extensionPanels.length > 0 && (
