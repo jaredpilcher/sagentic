@@ -77,6 +77,12 @@ export default function RunDetailPage() {
     const [loading, setLoading] = useState(true)
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
     const [activeTab, setActiveTab] = useState<'timeline' | 'graph'>('timeline')
+    const [nodeStateView, setNodeStateView] = useState<Record<string, 'changes' | 'full'>>({})
+    
+    const getNodeStateView = (nodeId: string) => nodeStateView[nodeId] || 'changes'
+    const setNodeStateViewTab = (nodeId: string, view: 'changes' | 'full') => {
+        setNodeStateView(prev => ({ ...prev, [nodeId]: view }))
+    }
     const [copied, setCopied] = useState(false)
     const { getRunActions, openModal } = useExtensions()
     
@@ -479,37 +485,93 @@ export default function RunDetailPage() {
                                         className="border-t border-border overflow-hidden"
                                     >
                                         <div className="p-4 space-y-4">
-                                            {node.state_diff && (Object.keys(node.state_diff.added).length > 0 || 
-                                                Object.keys(node.state_diff.removed).length > 0 || 
-                                                Object.keys(node.state_diff.modified).length > 0) && (
-                                                <div className="space-y-2">
-                                                    <h4 className="text-sm font-medium text-muted-foreground">State Changes</h4>
-                                                    <div className="space-y-2">
-                                                        {Object.keys(node.state_diff.added).length > 0 && (
-                                                            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                                                                <div className="text-xs font-medium text-green-500 mb-2">Added</div>
-                                                                <pre className="text-xs overflow-auto max-h-32 break-all whitespace-pre-wrap">
-                                                                    {JSON.stringify(node.state_diff.added, null, 2)}
-                                                                </pre>
-                                                            </div>
-                                                        )}
-                                                        {Object.keys(node.state_diff.removed).length > 0 && (
-                                                            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-                                                                <div className="text-xs font-medium text-red-500 mb-2">Removed</div>
-                                                                <pre className="text-xs overflow-auto max-h-32 break-all whitespace-pre-wrap">
-                                                                    {JSON.stringify(node.state_diff.removed, null, 2)}
-                                                                </pre>
-                                                            </div>
-                                                        )}
-                                                        {Object.keys(node.state_diff.modified).length > 0 && (
-                                                            <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-                                                                <div className="text-xs font-medium text-yellow-500 mb-2">Modified</div>
-                                                                <pre className="text-xs overflow-auto max-h-32 break-all whitespace-pre-wrap">
-                                                                    {JSON.stringify(node.state_diff.modified, null, 2)}
-                                                                </pre>
-                                                            </div>
-                                                        )}
+                                            {(node.state_in || node.state_out || node.state_diff) && (
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                                            <Database className="w-4 h-4" /> State
+                                                        </h4>
+                                                        <div className="flex gap-1 p-0.5 bg-accent/50 rounded-lg">
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setNodeStateViewTab(node.id, 'changes') }}
+                                                                className={`px-2 py-1 text-xs font-medium rounded transition-all ${
+                                                                    getNodeStateView(node.id) === 'changes'
+                                                                        ? 'bg-card text-foreground shadow-sm'
+                                                                        : 'text-muted-foreground hover:text-foreground'
+                                                                }`}
+                                                            >
+                                                                Changes
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setNodeStateViewTab(node.id, 'full') }}
+                                                                className={`px-2 py-1 text-xs font-medium rounded transition-all ${
+                                                                    getNodeStateView(node.id) === 'full'
+                                                                        ? 'bg-card text-foreground shadow-sm'
+                                                                        : 'text-muted-foreground hover:text-foreground'
+                                                                }`}
+                                                            >
+                                                                Full State
+                                                            </button>
+                                                        </div>
                                                     </div>
+                                                    
+                                                    {getNodeStateView(node.id) === 'changes' ? (
+                                                        <div className="space-y-2">
+                                                            {node.state_diff && (Object.keys(node.state_diff.added).length > 0 || 
+                                                                Object.keys(node.state_diff.removed).length > 0 || 
+                                                                Object.keys(node.state_diff.modified).length > 0) ? (
+                                                                <>
+                                                                    {Object.keys(node.state_diff.added).length > 0 && (
+                                                                        <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                                                                            <div className="text-xs font-medium text-green-500 mb-2">Added</div>
+                                                                            <pre className="text-xs overflow-auto max-h-32 break-all whitespace-pre-wrap">
+                                                                                {JSON.stringify(node.state_diff.added, null, 2)}
+                                                                            </pre>
+                                                                        </div>
+                                                                    )}
+                                                                    {Object.keys(node.state_diff.removed).length > 0 && (
+                                                                        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                                                                            <div className="text-xs font-medium text-red-500 mb-2">Removed</div>
+                                                                            <pre className="text-xs overflow-auto max-h-32 break-all whitespace-pre-wrap">
+                                                                                {JSON.stringify(node.state_diff.removed, null, 2)}
+                                                                            </pre>
+                                                                        </div>
+                                                                    )}
+                                                                    {Object.keys(node.state_diff.modified).length > 0 && (
+                                                                        <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                                                                            <div className="text-xs font-medium text-yellow-500 mb-2">Modified</div>
+                                                                            <pre className="text-xs overflow-auto max-h-32 break-all whitespace-pre-wrap">
+                                                                                {JSON.stringify(node.state_diff.modified, null, 2)}
+                                                                            </pre>
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <div className="text-xs text-muted-foreground italic p-3 bg-accent/30 rounded-lg">
+                                                                    No state changes detected
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="grid md:grid-cols-2 gap-3">
+                                                            <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                                                                <div className="text-xs font-medium text-blue-500 mb-2 flex items-center gap-1">
+                                                                    <Info className="w-3 h-3" /> Input State
+                                                                </div>
+                                                                <pre className="text-xs overflow-auto max-h-48 break-all whitespace-pre-wrap text-muted-foreground">
+                                                                    {node.state_in ? JSON.stringify(node.state_in, null, 2) : 'No input state'}
+                                                                </pre>
+                                                            </div>
+                                                            <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                                                                <div className="text-xs font-medium text-green-500 mb-2 flex items-center gap-1">
+                                                                    <CheckCircle className="w-3 h-3" /> Output State
+                                                                </div>
+                                                                <pre className="text-xs overflow-auto max-h-48 break-all whitespace-pre-wrap text-muted-foreground">
+                                                                    {node.state_out ? JSON.stringify(node.state_out, null, 2) : 'No output state'}
+                                                                </pre>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
 
