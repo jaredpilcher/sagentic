@@ -21,12 +21,31 @@ class DashboardWidgetContribution(BaseModel):
     component: Optional[str] = None
 
 
+class ExtensionPageContribution(BaseModel):
+    id: str
+    path: str
+    title: str
+    icon: Optional[str] = None
+    showInSidebar: Optional[bool] = False
+
+
+class ExtensionModalContribution(BaseModel):
+    id: str
+    title: str
+    width: Optional[str] = "medium"
+    height: Optional[str] = "auto"
+
+
 class RunActionContribution(BaseModel):
     id: str
     title: str
     icon: Optional[str] = "Zap"
     when: Optional[str] = None
     handler: Optional[str] = None
+    actionType: Optional[str] = None
+    target: Optional[str] = None
+    modal: Optional[str] = None
+    navigateTo: Optional[str] = None
 
 
 class AgentActionContribution(BaseModel):
@@ -35,6 +54,10 @@ class AgentActionContribution(BaseModel):
     icon: Optional[str] = "Zap"
     when: Optional[str] = None
     handler: Optional[str] = None
+    actionType: Optional[str] = None
+    target: Optional[str] = None
+    modal: Optional[str] = None
+    navigateTo: Optional[str] = None
 
 
 class ContextMenuContribution(BaseModel):
@@ -69,6 +92,8 @@ class ExtensionPermissions(BaseModel):
 class ExtensionContributes(BaseModel):
     sidebar_panels: Optional[List[SidebarPanelContribution]] = None
     dashboard_widgets: Optional[List[DashboardWidgetContribution]] = None
+    pages: Optional[List[ExtensionPageContribution]] = None
+    modals: Optional[List[ExtensionModalContribution]] = None
     run_actions: Optional[List[RunActionContribution]] = None
     agent_actions: Optional[List[AgentActionContribution]] = None
     node_actions: Optional[List[RunActionContribution]] = None

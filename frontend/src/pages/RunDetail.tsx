@@ -78,9 +78,18 @@ export default function RunDetailPage() {
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
     const [activeTab, setActiveTab] = useState<'timeline' | 'graph'>('timeline')
     const [copied, setCopied] = useState(false)
-    const { getRunActions } = useExtensions()
+    const { getRunActions, openModal } = useExtensions()
     
     const runActions = getRunActions()
+    
+    const handleAction = (action: typeof runActions[0]) => {
+        if (action.actionType === 'modal' && action.modal) {
+            openModal(action.extensionName, action.modal, {
+                run_id: runId,
+                graph_id: run?.graph_id
+            })
+        }
+    }
 
     useEffect(() => {
         if (!runId) return
@@ -364,10 +373,25 @@ export default function RunDetailPage() {
                     <span className="text-xs text-muted-foreground self-center mr-1">Extensions:</span>
                     {runActions.map(action => {
                         const Icon = actionIconMap[action.icon || 'Zap'] || Zap
+                        
+                        if (action.actionType === 'modal' && action.modal) {
+                            return (
+                                <button
+                                    key={`${action.extensionId}-${action.id}`}
+                                    onClick={() => handleAction(action)}
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent hover:bg-accent/80 transition-colors text-sm"
+                                >
+                                    <Icon className="w-4 h-4" />
+                                    <span>{action.title}</span>
+                                </button>
+                            )
+                        }
+                        
+                        const targetPath = action.navigateTo || `/extensions/${action.extensionName}`
                         return (
                             <Link
                                 key={`${action.extensionId}-${action.id}`}
-                                to={`/extensions/${action.extensionName}`}
+                                to={targetPath}
                                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent hover:bg-accent/80 transition-colors text-sm"
                             >
                                 <Icon className="w-4 h-4" />

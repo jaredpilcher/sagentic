@@ -1146,53 +1146,6 @@ def get_extension_permissions(
     }
 
 
-@app.get("/api/extensions/{extension_name}/pages/{page_path:path}")
-def get_extension_page(
-    extension_name: str,
-    page_path: str,
-    db: Session = Depends(get_db)
-):
-    """Get page content for an extension.
-    
-    Extensions can define multiple pages in their manifest.
-    Each page can return structured data for rendering.
-    """
-    ext = db.query(Extension).filter(Extension.name == extension_name).first()
-    if not ext:
-        raise HTTPException(status_code=404, detail="Extension not found")
-    
-    if ext.status != "enabled":
-        raise HTTPException(status_code=404, detail="Extension is not enabled")
-    
-    pages = ext.manifest.get("contributes", {}).get("pages", [])
-    
-    matched_page = None
-    for page in pages:
-        page_route = page.get("path", "").strip("/")
-        if page_route == page_path or page_route == page_path.rstrip("/"):
-            matched_page = page
-            break
-    
-    if not matched_page and page_path in ["", "index", "/"]:
-        return {
-            "title": ext.name.replace("-", " ").title(),
-            "navigation": [
-                {"id": p["id"], "path": "/" + p.get("path", "").strip("/"), "title": p["title"], "icon": p.get("icon")}
-                for p in pages
-            ] if pages else None
-        }
-    
-    if matched_page:
-        return {
-            "title": matched_page.get("title", ""),
-            "pageId": matched_page.get("id"),
-            "navigation": [
-                {"id": p["id"], "path": "/" + p.get("path", "").strip("/"), "title": p["title"], "icon": p.get("icon")}
-                for p in pages
-            ] if pages else None
-        }
-    
-    raise HTTPException(status_code=404, detail=f"Page '{page_path}' not found in extension")
 
 
 @app.post("/api/extensions/{extension_name}/modals/{modal_id}")

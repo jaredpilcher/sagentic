@@ -56,48 +56,49 @@ export default function ExtensionPanel() {
             setLoading(true)
             setError(null)
 
-            const pagePath = currentPath || 'index'
-            const res = await fetch(`/api/extensions/${extensionName}/pages/${pagePath}`)
-            
-            if (res.ok) {
-                const data = await res.json()
-                setPageData(data)
-            } else if (res.status === 404) {
-                const [statsRes, dailyRes, graphsRes] = await Promise.allSettled([
-                    fetch(`/api/extensions/${extensionName}/stats?days=30`),
-                    fetch(`/api/extensions/${extensionName}/daily?days=14`),
-                    fetch(`/api/extensions/${extensionName}/graphs`)
-                ])
-
-                const stats = statsRes.status === 'fulfilled' && statsRes.value.ok 
-                    ? await statsRes.value.json() 
-                    : null
-                const daily = dailyRes.status === 'fulfilled' && dailyRes.value.ok 
-                    ? await dailyRes.value.json() 
-                    : null
-                const graphs = graphsRes.status === 'fulfilled' && graphsRes.value.ok 
-                    ? await graphsRes.value.json() 
-                    : null
-
-                if (!stats && !daily && !graphs) {
-                    throw new Error('Extension has no data endpoints')
+            if (currentPath) {
+                const pageRes = await fetch(`/api/extensions/${extensionName}/pages/${currentPath}`)
+                if (pageRes.ok) {
+                    const data = await pageRes.json()
+                    if (data.sections || data.html || data.data) {
+                        setPageData(data)
+                        return
+                    }
                 }
-
-                const sections: PageData['sections'] = []
-                if (stats) {
-                    sections.push({ id: 'stats', title: 'Overview (Last 30 Days)', type: 'stats', data: stats })
-                }
-                if (daily?.daily || daily) {
-                    sections.push({ id: 'daily', title: 'Daily Breakdown', type: 'table', data: daily?.daily || daily })
-                }
-                if (graphs?.graphs || graphs) {
-                    sections.push({ id: 'graphs', title: 'Per-Graph Statistics', type: 'cards', data: graphs?.graphs || graphs })
-                }
-
-                setPageData({ sections })
-            } else {
-                throw new Error('Failed to load page')
             }
+
+            const [statsRes, dailyRes, graphsRes] = await Promise.allSettled([
+                fetch(`/api/extensions/${extensionName}/stats?days=30`),
+                fetch(`/api/extensions/${extensionName}/daily?days=14`),
+                fetch(`/api/extensions/${extensionName}/graphs`)
+            ])
+
+            const stats = statsRes.status === 'fulfilled' && statsRes.value.ok 
+                ? await statsRes.value.json() 
+                : null
+            const daily = dailyRes.status === 'fulfilled' && dailyRes.value.ok 
+                ? await dailyRes.value.json() 
+                : null
+            const graphs = graphsRes.status === 'fulfilled' && graphsRes.value.ok 
+                ? await graphsRes.value.json() 
+                : null
+
+            if (!stats && !daily && !graphs) {
+                throw new Error('Extension has no data endpoints')
+            }
+
+            const sections: PageData['sections'] = []
+            if (stats) {
+                sections.push({ id: 'stats', title: 'Overview (Last 30 Days)', type: 'stats', data: stats })
+            }
+            if (daily?.daily || daily) {
+                sections.push({ id: 'daily', title: 'Daily Breakdown', type: 'table', data: daily?.daily || daily })
+            }
+            if (graphs?.graphs || graphs) {
+                sections.push({ id: 'graphs', title: 'Per-Graph Statistics', type: 'cards', data: graphs?.graphs || graphs })
+            }
+
+            setPageData({ sections })
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load extension data')
         } finally {
@@ -280,7 +281,7 @@ export default function ExtensionPanel() {
                     >
                         Overview
                     </Link>
-                    {pages.map(page => {
+                    {pages.filter(p => p.path !== '/' && p.path !== '').map(page => {
                         const Icon = iconMap[page.icon || 'Package'] || LucideIcons.FileText
                         const isActive = currentPath === page.path.replace(/^\//, '')
                         return (
@@ -301,28 +302,6 @@ export default function ExtensionPanel() {
                 </div>
             )}
 
-            {pageData?.navigation && (
-                <div className="flex flex-wrap gap-2 border-b border-border pb-4">
-                    {pageData.navigation.map(nav => {
-                        const Icon = iconMap[nav.icon || 'Package'] || LucideIcons.FileText
-                        const isActive = location.pathname.endsWith(nav.path)
-                        return (
-                            <Link
-                                key={nav.id}
-                                to={`/extensions/${extensionName}${nav.path}`}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                    isActive 
-                                        ? 'bg-primary text-primary-foreground' 
-                                        : 'bg-muted/30 hover:bg-muted/50'
-                                }`}
-                            >
-                                <Icon className="w-4 h-4" />
-                                {nav.title}
-                            </Link>
-                        )
-                    })}
-                </div>
-            )}
 
             {pageData?.html && (
                 <div 
