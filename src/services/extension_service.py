@@ -6,7 +6,7 @@ import tempfile
 from datetime import datetime
 
 from ..repositories.extension_repository import ExtensionRepository
-from ..db.models import Extension, ExtensionStatusUpdate
+from ..db.models import Extension
 from ..extensions.manager import ExtensionManager
 
 class ExtensionService:

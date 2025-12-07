@@ -212,10 +212,28 @@ class ExtensionManager:
         except Exception as e:
             return False, f"Failed to uninstall: {str(e)}"
     
-    def get_frontend_assets_path(self, name: str, version: str) -> Optional[Path]:
-        install_path = self.get_extension_path(name, version)
-        frontend_dir = install_path / "frontend"
-        
         if frontend_dir.exists():
             return frontend_dir
         return None
+
+    def get_frontend_manifest(self, extensions: List[Any]) -> Dict[str, Any]:
+        """Generate frontend manifest for enabled extensions."""
+        manifests = {}
+        for ext in extensions:
+            if not ext.has_frontend:
+                continue
+            
+            # Use manifest dict if available, otherwise fallback
+            manifest_data = ext.manifest if isinstance(ext.manifest, dict) else {}
+            
+            manifests[ext.name] = {
+                "id": ext.id,
+                "name": ext.name,
+                "version": ext.version,
+                "description": ext.description,
+                "frontend_entry": manifest_data.get("frontend_entry"),
+                "contributes": manifest_data.get("contributes"),
+                "base_url": f"/api/extensions/{ext.name}/frontend", 
+                "api_base_url": f"/api/extensions/{ext.name}"
+            }
+        return manifests

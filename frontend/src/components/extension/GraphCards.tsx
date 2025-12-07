@@ -1,4 +1,5 @@
 import React from 'react'
+import { formatValue } from '../../lib/formatUtils'
 
 interface GraphCardsProps {
     data: Array<Record<string, unknown>>
@@ -19,9 +20,7 @@ export function GraphCards({ data }: GraphCardsProps) {
                                 <div key={key}>
                                     <div className="text-muted-foreground capitalize text-xs">{key.replace(/_/g, ' ')}</div>
                                     <div className="font-medium">
-                                        {typeof value === 'number'
-                                            ? value.toLocaleString(undefined, { maximumFractionDigits: 2 })
-                                            : String(value)}
+                                        {formatValue(key, value)}
                                     </div>
                                 </div>
                             ))}

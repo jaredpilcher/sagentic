@@ -15,9 +15,7 @@ router = APIRouter(prefix="/api/runs", tags=["runs"])
 def get_service(db: Session = Depends(get_db)) -> RunService:
     return RunService(db)
 
-@APIRouter(prefix="/api/traces", tags=["traces"])
-class TraceRouter: # Hack to group trace endpoint if needed, but simple func is better
-    pass
+
 
 @router.get("", response_model=List[RunSummary])
 def list_runs(

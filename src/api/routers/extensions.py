@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from ...db.database import get_db
 from ...services.extension_service import ExtensionService
@@ -49,6 +49,12 @@ def list_extensions(
         ) for e in extensions],
         total=len(extensions)
     )
+
+@router.get("/frontend-manifest", response_model=Dict[str, Any])
+def get_frontend_manifest(service: ExtensionService = Depends(get_service)):
+    """Get aggregated frontend manifest."""
+    extensions = service.list_extensions("enabled")
+    return service.manager.get_frontend_manifest(extensions)
 
 @router.post("/install", response_model=ExtensionInstallResponse)
 async def install_extension(
