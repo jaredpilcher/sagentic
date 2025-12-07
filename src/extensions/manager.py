@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any, Callable, List
 from fastapi import FastAPI, APIRouter
 from starlette.routing import Route, Mount
+import asyncio
 
 EXTENSIONS_DIR = Path(os.environ.get("EXTENSIONS_DIR", "extensions"))
 
@@ -104,7 +105,7 @@ class ExtensionManager:
         except Exception as e:
             return False, f"Installation failed: {str(e)}", None
     
-    def load_backend(self, extension_id: str, name: str, version: str, backend_entry: str) -> tuple[bool, str]:
+    async def load_backend(self, extension_id: str, name: str, version: str, backend_entry: str) -> tuple[bool, str]:
         install_path = self.get_extension_path(name, version)
         backend_dir = install_path / "backend"
         
@@ -112,6 +113,10 @@ class ExtensionManager:
             return False, "Backend directory not found"
         
         try:
+            backend_entry = manifest.get("backend_entry")
+            if not backend_entry:
+                 return False, "No backend_entry found"
+
             module_name, func_name = backend_entry.split(":")
             module_path = backend_dir / f"{module_name}.py"
             
@@ -142,13 +147,16 @@ class ExtensionManager:
                 "name": name,
                 "version": version,
                 "router": router,
-                "module": module
+                "module": module,
+                "type": "python"
             }
             
             return True, "Backend loaded successfully"
             
         except Exception as e:
             return False, f"Failed to load backend: {str(e)}"
+
+
     
     def _remove_routes_by_prefix(self, routes_list: list, prefix: str) -> None:
         """Remove routes matching the given prefix from a routes list."""
@@ -164,7 +172,7 @@ class ExtensionManager:
         for route in routes_to_remove:
             routes_list.remove(route)
     
-    def unload_backend(self, extension_id: str) -> tuple[bool, str]:
+    async def unload_backend(self, extension_id: str) -> tuple[bool, str]:
         if extension_id not in self.loaded_extensions:
             return True, "Extension not loaded"
         
@@ -174,9 +182,15 @@ class ExtensionManager:
             
             if extension_id in self.cleanup_handlers:
                 try:
-                    self.cleanup_handlers[extension_id]()
-                except Exception:
-                    pass
+                    handler = self.cleanup_handlers[extension_id]
+                    if asyncio.iscoroutinefunction(handler) or asyncio.iscoroutine(handler):
+                        await handler()
+                    elif callable(handler):
+                        res = handler()
+                        if asyncio.iscoroutine(res):
+                            await res
+                except Exception as e:
+                    print(f"Error during cleanup for {extension_id}: {e}")
                 del self.cleanup_handlers[extension_id]
             
             if extension_id in self.extension_routers:

@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 
-from .routers import runs, traces, extensions, agents
+from .routers import runs, traces, extensions, agents, mcp_server
 # Future: from .routers import agents, data
 
 from ..db.database import init_db, SessionLocal
@@ -44,7 +44,7 @@ async def lifespan(app: FastAPI):
         for ext in enabled_exts:
              if ext.has_backend and ext.manifest.get("backend_entry"):
                 logger.info(f"Loading extension backend: {ext.name}")
-                manager.load_backend(ext.id, ext.name, ext.version, ext.manifest["backend_entry"])
+                await manager.load_backend(ext.id, ext.name, ext.version, ext.manifest["backend_entry"])
     except Exception as e:
         logger.error(f"Error loading extensions on startup: {e}")
     finally:
@@ -77,6 +77,7 @@ app.include_router(runs.router)
 app.include_router(traces.router)
 app.include_router(extensions.router)
 app.include_router(agents.router)
+app.include_router(mcp_server.router)
 
 # --- Static ---
 # Serve frontend if built

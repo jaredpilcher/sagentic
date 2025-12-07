@@ -14,3 +14,4 @@ redis
 requests
 python-multipart
 tarsafe
+mcp

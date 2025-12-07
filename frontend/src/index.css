@@ -5,7 +5,8 @@
 @layer base {
   :root {
     --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
+    --foreground: 213 31% 95%;
+    /* Brighter white for text */
     --card: 224 71% 4%;
     --card-foreground: 213 31% 91%;
     --popover: 224 71% 4%;
@@ -15,7 +16,8 @@
     --secondary: 222.2 47.4% 11.2%;
     --secondary-foreground: 210 40% 98%;
     --muted: 223 47% 11%;
-    --muted-foreground: 215.4 16.3% 56.9%;
+    --muted-foreground: 215.4 16.3% 65%;
+    /* Increased brightness for better contrast on dark bg */
     --accent: 216 34% 17%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 63% 31%;
@@ -31,11 +33,13 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
   html {
     scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
@@ -46,15 +50,18 @@
   .safe-area-pb {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+
   .safe-area-pt {
     padding-top: env(safe-area-inset-top, 0px);
   }
+
   .line-clamp-1 {
     display: -webkit-box;
     -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+
   .line-clamp-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -98,12 +105,16 @@ pre {
   font-family: 'SF Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
 }
 
-input, select, button {
+input,
+select,
+button {
   font-size: 16px;
 }
 
 @media (hover: none) {
-  button:active, a:active {
+
+  button:active,
+  a:active {
     opacity: 0.8;
   }
 }

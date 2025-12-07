@@ -21,7 +21,7 @@ Sagentic is a developer-first platform designed to observe, debug, and manage yo
 - **Observability**: detailed traces of every step in your agent's execution.
 - **Visual Graph**: Interactive node-link diagram of your agent's workflow.
 - **Analytics**: Cost, latency, and token usage metrics.
-- **Extensions**: A powerful plugin system using the **Model Context Protocol (MCP)**.
+- **MCP Server**: Sagentic acts as an MCP Server, providing tools for your agents to log themselves.
 
 ## Why Sagentic?
 Building agents is hard. Debugging them is harder. Sagentic gives you the "X-Ray vision" to understand why your agent got stuck in a loop or why it hallucinated a response.
@@ -45,6 +45,7 @@ docker-compose up -d
 Once running, access the dashboard at:
 - **UI**: [http://localhost:3000](http://localhost:3000)
 - **API**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **MCP Endpoint**: [http://localhost:8000/api/mcp/sse](http://localhost:8000/api/mcp/sse)
 
 ## Configuration
 Sagentic needs access to a Postgres database. By default, the docker-compose file sets up a local Postgres instance.
@@ -56,66 +57,59 @@ LOG_LEVEL=INFO
 \`\`\`
 `;
 
-const LANGGRAPH_CONTENT = `
-# LangGraph Integration
-
-Sagentic includes first-class support for **LangGraph**. We provide a custom checkpointer / callback handler (coming soon) or a simple way to instrument your nodes.
-
-## Instrumentation
-To send traces to Sagentic, you can use our simple REST API or the Python SDK.
-
-### Using Python Requests
-\`\`\`python
-import requests
-import uuid
-
-RUN_ID = str(uuid.uuid4())
-SAGENTIC_API = "http://localhost:8000/api"
-
-# 1. Create a Run
-requests.post(f"{SAGENTIC_API}/runs", json={
-    "id": RUN_ID,
-    "graph_id": "research-agent",
-    "input_state": {"query": "Quantum Computing"}
-})
-
-# 2. Log a Step
-requests.post(f"{SAGENTIC_API}/runs/{RUN_ID}/nodes", json={
-    "node_key": "search_tool",
-    "node_type": "tool",
-    "status": "completed",
-    "latency_ms": 450,
-    "start_time": "2023-10-27T10:00:00Z"
-})
-\`\`\`
-
-## Automatic Instrumentation
-*Coming soon: \`SagenticCallbackHandler\` for LangChain/LangGraph.*
-`;
-
 const MCP_CONTENT = `
 # Model Context Protocol (MCP)
 
-Sagentic leverages the **Model Context Protocol (MCP)** to allow you to build powerful extensions.
+Sagentic acts as an **MCP Server**, exposing tools that allow your agents to self-register and log their execution steps automatically.
 
-## What is MCP?
-MCP is a standard for connecting AI models to external data and tools. In Sagentic, **Extensions** are essentially MCP Servers. Sagentic acts as the MCP Client.
+## Connection
+Connect your MCP Client (Agent) to the Sagentic SSE Endpoint:
+**URL**: \`http://localhost:8000/api/mcp/sse\`
 
-## Creating an Extension
-1. Create a \`manifest.json\`
-2. Build a backend (Python/Node) that speaks MCP (stdio or SSE).
-3. Zip it up and upload it in the Extensions UI.
+## Exposed Tools
+When connected, Sagentic exposes the following tools to your agent:
 
-### Manifest Example
-\`\`\`json
-{
-  "id": "my-weather-extension",
-  "name": "Weather Tools",
-  "version": "1.0.0",
-  "backend_entry": "main.py",
-  "capabilities": ["tools", "resources"]
-}
+### \`start_run\`
+Start tracking a new execution run.
+- **Arguments**:
+  - \`graph_id\` (string): Unique identifier for your agent graph/type.
+  - \`input_state\` (object): Initial input dictionary.
+- **Returns**: \`run_id\` (string)
+
+### \`log_step\`
+Log the execution of a single node or step.
+- **Arguments**:
+  - \`run_id\` (string): The ID returned by \`start_run\`.
+  - \`node_name\` (string): Name of the step/node executed.
+  - \`output\` (object): State/Output of the step.
+`;
+
+const LANGGRAPH_CONTENT = `
+# LangGraph Integration
+
+Sagentic makes it **easy** to integrate with LangGraph using our "Plug and Play" tracer.
+
+## The SagenticTracer Adapter
+We provide a ready-to-use adapter that acts as a bridge between LangGraph and Sagentic. It automatically logs your agent's runs and steps.
+
+### Setup
+1. Copy the \`sagentic_tracer.py\` file from \`examples/langgraph_demo/\` into your project.
+2. Initialize and attach the tracer:
+
+\`\`\`python
+from sagentic_tracer import SagenticTracer
+
+# 1. Initialize
+tracer = SagenticTracer(
+    base_url="http://localhost:8000/api/mcp",
+    graph_id="my-agent"
+)
+
+# 2. Run with Tracer
+graph.invoke(inputs, config={"callbacks": [tracer]})
 \`\`\`
+
+That's it! Your agent runs will now appear in the Sagentic dashboard.
 `;
 
 export const DOCS_NAV: DocSection[] = [
@@ -132,7 +126,6 @@ export const DOCS_NAV: DocSection[] = [
         title: "Integration Guides",
         items: [
             { id: "langgraph", title: "LangGraph", content: LANGGRAPH_CONTENT },
-            { id: "autogen", title: "AutoGen", content: "# AutoGen Support\\n\\n*Coming soon.*" },
         ]
     },
     {
