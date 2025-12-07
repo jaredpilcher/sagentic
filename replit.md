@@ -180,6 +180,11 @@ Extensions can contribute widgets to the library via the `contributes.dashboard_
 Dashboard layout is persisted in localStorage and survives page refreshes.
 
 ## Recent Changes (Dec 7, 2025)
+- Added "All Runs" page with full run history, search, and filtering
+  - Search by run ID, graph name, or framework
+  - Filter by status (completed/failed/running) and graph
+  - Shows extension run actions with links to extension panels
+  - Full details: nodes, tokens, latency, cost, error messages, timestamps
 - Added customizable widget dashboard with drag-and-drop (react-grid-layout)
 - Users can add, remove, rearrange, and resize widgets
 - Widget library includes built-in metrics and extension-contributed widgets
