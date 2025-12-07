@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import axios from 'axios'
-import { ArrowLeft, Clock, Zap, DollarSign, CheckCircle, XCircle, ChevronDown, ChevronRight, MessageSquare, GitBranch, Activity, Copy, Check, BarChart3, Settings, Shield } from 'lucide-react'
+import { ArrowLeft, Clock, Zap, DollarSign, CheckCircle, XCircle, ChevronDown, ChevronRight, MessageSquare, GitBranch, Activity, Copy, Check, BarChart3, Settings, Shield, Bot, Calendar, Tag, Database, AlertTriangle, Info } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { formatDistanceToNow, format } from 'date-fns'
 import { useExtensions } from '../lib/extensions'
 
 const actionIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -77,18 +78,9 @@ export default function RunDetailPage() {
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
     const [activeTab, setActiveTab] = useState<'timeline' | 'graph'>('timeline')
     const [copied, setCopied] = useState(false)
-    const { getRunActions, executeAction } = useExtensions()
+    const { getRunActions } = useExtensions()
     
     const runActions = getRunActions()
-
-    const handleExtensionAction = async (extensionName: string, actionId: string) => {
-        if (!run) return
-        try {
-            await executeAction(extensionName, actionId, { run_id: run.id, graph_id: run.graph_id })
-        } catch (err) {
-            console.error('Extension action failed:', err)
-        }
-    }
 
     useEffect(() => {
         if (!runId) return
@@ -140,50 +132,128 @@ export default function RunDetailPage() {
         )
     }
 
+    const duration = run.ended_at && run.started_at 
+        ? Math.round((new Date(run.ended_at).getTime() - new Date(run.started_at).getTime()))
+        : null
+
+    const formatDuration = (ms: number) => {
+        if (ms < 1000) return `${ms}ms`
+        if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
+        return `${(ms / 60000).toFixed(1)}m`
+    }
+
+    const failedNodes = run.nodes.filter(n => n.status === 'failed' || n.error)
+
     return (
         <div className="space-y-4 md:space-y-6">
-            <div className="flex items-start gap-3 md:gap-4">
-                <Link 
-                    to="/" 
-                    className="p-2.5 hover:bg-accent rounded-xl transition-colors flex-shrink-0 active:scale-[0.95]"
-                >
-                    <ArrowLeft className="w-5 h-5" />
-                </Link>
-                <div className="min-w-0 flex-1">
-                    <h2 className="text-xl md:text-2xl font-bold truncate">{run.graph_id || 'Workflow Run'}</h2>
-                    <button 
-                        onClick={copyRunId}
-                        className="text-xs md:text-sm text-muted-foreground font-mono flex items-center gap-1.5 hover:text-foreground transition-colors mt-0.5"
-                    >
-                        <span className="truncate max-w-[200px] md:max-w-none">{run.id}</span>
-                        {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
-                    </button>
+            <Link 
+                to="/runs" 
+                className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm"
+            >
+                <ArrowLeft className="w-4 h-4" />
+                Back to All Runs
+            </Link>
+
+            <div className="bg-card border border-border rounded-xl p-4 md:p-6">
+                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                            {run.graph_id ? (
+                                <Link 
+                                    to={`/agents/${encodeURIComponent(run.graph_id)}`}
+                                    className="flex items-center gap-2 hover:text-primary transition-colors group"
+                                >
+                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                                        <Bot className="w-5 h-5 text-primary" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl md:text-2xl font-bold group-hover:text-primary transition-colors">
+                                            {run.graph_id}
+                                        </h2>
+                                        <span className="text-xs text-muted-foreground group-hover:text-primary/70">
+                                            View all runs for this agent →
+                                        </span>
+                                    </div>
+                                </Link>
+                            ) : (
+                                <div className="flex items-center gap-2">
+                                    <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center">
+                                        <Activity className="w-5 h-5 text-muted-foreground" />
+                                    </div>
+                                    <h2 className="text-xl md:text-2xl font-bold">Workflow Run</h2>
+                                </div>
+                            )}
+                        </div>
+                        
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                            <button 
+                                onClick={copyRunId}
+                                className="font-mono text-xs text-muted-foreground flex items-center gap-1.5 hover:text-foreground transition-colors bg-accent/50 px-2 py-1 rounded"
+                            >
+                                <span className="truncate max-w-[180px] md:max-w-[300px]">{run.id}</span>
+                                {copied ? <Check className="w-3 h-3 text-green-500 flex-shrink-0" /> : <Copy className="w-3 h-3 flex-shrink-0" />}
+                            </button>
+                            
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-accent text-muted-foreground">
+                                {run.framework}
+                            </span>
+                            
+                            {run.graph_version && (
+                                <span className="text-xs text-muted-foreground">
+                                    v{run.graph_version}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="flex-shrink-0">
+                        {run.status === 'completed' ? (
+                            <span className="flex items-center gap-1.5 text-green-500 text-sm bg-green-500/10 px-3 py-1.5 rounded-full">
+                                <CheckCircle className="w-4 h-4" />
+                                Completed
+                            </span>
+                        ) : run.status === 'failed' ? (
+                            <span className="flex items-center gap-1.5 text-red-500 text-sm bg-red-500/10 px-3 py-1.5 rounded-full">
+                                <XCircle className="w-4 h-4" />
+                                Failed
+                            </span>
+                        ) : (
+                            <span className="flex items-center gap-1.5 text-blue-500 text-sm bg-blue-500/10 px-3 py-1.5 rounded-full">
+                                <Activity className="w-4 h-4 animate-pulse" />
+                                Running
+                            </span>
+                        )}
+                    </div>
                 </div>
-                <div className="flex-shrink-0">
-                    {run.status === 'completed' ? (
-                        <span className="flex items-center gap-1.5 text-green-500 text-sm bg-green-500/10 px-3 py-1.5 rounded-full">
-                            <CheckCircle className="w-4 h-4" />
-                            <span className="hidden sm:inline">Completed</span>
-                        </span>
-                    ) : run.status === 'failed' ? (
-                        <span className="flex items-center gap-1.5 text-red-500 text-sm bg-red-500/10 px-3 py-1.5 rounded-full">
-                            <XCircle className="w-4 h-4" />
-                            <span className="hidden sm:inline">Failed</span>
-                        </span>
-                    ) : (
-                        <span className="flex items-center gap-1.5 text-blue-500 text-sm bg-blue-500/10 px-3 py-1.5 rounded-full">
-                            <Activity className="w-4 h-4 animate-pulse" />
-                            <span className="hidden sm:inline">Running</span>
-                        </span>
-                    )}
+
+                <div className="mt-4 pt-4 border-t border-border">
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4" />
+                            <span>
+                                {format(new Date(run.started_at), 'MMM d, yyyy HH:mm:ss')}
+                            </span>
+                            <span className="text-xs">
+                                ({formatDistanceToNow(new Date(run.started_at), { addSuffix: true })})
+                            </span>
+                        </div>
+                        
+                        {duration !== null && (
+                            <div className="flex items-center gap-2">
+                                <Clock className="w-4 h-4" />
+                                <span>Duration: {formatDuration(duration)}</span>
+                            </div>
+                        )}
+                        
+                        <div className="flex items-center gap-2">
+                            <GitBranch className="w-4 h-4" />
+                            <span>{run.nodes.length} nodes</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="p-3 md:p-4 rounded-xl bg-card border border-border">
-                    <div className="text-xs text-muted-foreground mb-1">Framework</div>
-                    <div className="font-medium text-sm md:text-base truncate">{run.framework}</div>
-                </div>
                 <div className="p-3 md:p-4 rounded-xl bg-card border border-border">
                     <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
                         <Clock className="w-3 h-3" /> Latency
@@ -202,12 +272,90 @@ export default function RunDetailPage() {
                     </div>
                     <div className="font-medium text-sm md:text-base">${run.total_cost.toFixed(4)}</div>
                 </div>
+                <div className="p-3 md:p-4 rounded-xl bg-card border border-border">
+                    <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                        <MessageSquare className="w-3 h-3" /> Messages
+                    </div>
+                    <div className="font-medium text-sm md:text-base">{run.nodes.reduce((acc, n) => acc + n.messages.length, 0)}</div>
+                </div>
             </div>
 
-            {run.error && (
-                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500">
-                    <div className="font-medium mb-1 text-sm">Error</div>
-                    <div className="text-sm font-mono break-all">{run.error}</div>
+            {(run.error || failedNodes.length > 0) && (
+                <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+                    <div className="flex items-center gap-2 text-red-500 font-medium mb-2">
+                        <AlertTriangle className="w-4 h-4" />
+                        {run.error ? 'Run Error' : `${failedNodes.length} Failed Node${failedNodes.length > 1 ? 's' : ''}`}
+                    </div>
+                    {run.error && (
+                        <div className="text-sm font-mono text-red-400 break-all mb-2">{run.error}</div>
+                    )}
+                    {failedNodes.length > 0 && (
+                        <div className="space-y-2">
+                            {failedNodes.map(node => (
+                                <div key={node.id} className="text-sm">
+                                    <span className="font-medium text-red-400">{node.node_key}:</span>{' '}
+                                    <span className="text-red-300/80 font-mono">{node.error || 'Failed'}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {(run.tags && run.tags.length > 0) && (
+                <div className="flex items-center gap-2 flex-wrap">
+                    <Tag className="w-4 h-4 text-muted-foreground" />
+                    {run.tags.map((tag, i) => (
+                        <span key={i} className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary">
+                            {tag}
+                        </span>
+                    ))}
+                </div>
+            )}
+
+            {(run.run_metadata && Object.keys(run.run_metadata).length > 0) && (
+                <details className="bg-card border border-border rounded-xl overflow-hidden">
+                    <summary className="p-4 cursor-pointer hover:bg-accent/50 transition-colors flex items-center gap-2">
+                        <Database className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium">Run Metadata</span>
+                        <span className="text-xs text-muted-foreground">({Object.keys(run.run_metadata).length} fields)</span>
+                    </summary>
+                    <div className="p-4 border-t border-border">
+                        <pre className="text-xs font-mono overflow-auto max-h-48 text-muted-foreground">
+                            {JSON.stringify(run.run_metadata, null, 2)}
+                        </pre>
+                    </div>
+                </details>
+            )}
+
+            {(run.input_state || run.output_state) && (
+                <div className="grid md:grid-cols-2 gap-4">
+                    {run.input_state && (
+                        <details className="bg-card border border-border rounded-xl overflow-hidden">
+                            <summary className="p-4 cursor-pointer hover:bg-accent/50 transition-colors flex items-center gap-2">
+                                <Info className="w-4 h-4 text-blue-500" />
+                                <span className="font-medium">Input State</span>
+                            </summary>
+                            <div className="p-4 border-t border-border">
+                                <pre className="text-xs font-mono overflow-auto max-h-48 text-muted-foreground">
+                                    {JSON.stringify(run.input_state, null, 2)}
+                                </pre>
+                            </div>
+                        </details>
+                    )}
+                    {run.output_state && (
+                        <details className="bg-card border border-border rounded-xl overflow-hidden">
+                            <summary className="p-4 cursor-pointer hover:bg-accent/50 transition-colors flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-green-500" />
+                                <span className="font-medium">Output State</span>
+                            </summary>
+                            <div className="p-4 border-t border-border">
+                                <pre className="text-xs font-mono overflow-auto max-h-48 text-muted-foreground">
+                                    {JSON.stringify(run.output_state, null, 2)}
+                                </pre>
+                            </div>
+                        </details>
+                    )}
                 </div>
             )}
 
@@ -450,26 +598,6 @@ export default function RunDetailPage() {
                 </div>
             )}
 
-            {(run.input_state || run.output_state) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                    {run.input_state && (
-                        <div className="bg-card border border-border rounded-xl p-4">
-                            <h3 className="font-medium mb-2 text-sm md:text-base">Input State</h3>
-                            <pre className="text-xs bg-background p-3 rounded-lg overflow-auto max-h-48 break-all whitespace-pre-wrap">
-                                {JSON.stringify(run.input_state, null, 2)}
-                            </pre>
-                        </div>
-                    )}
-                    {run.output_state && (
-                        <div className="bg-card border border-border rounded-xl p-4">
-                            <h3 className="font-medium mb-2 text-sm md:text-base">Output State</h3>
-                            <pre className="text-xs bg-background p-3 rounded-lg overflow-auto max-h-48 break-all whitespace-pre-wrap">
-                                {JSON.stringify(run.output_state, null, 2)}
-                            </pre>
-                        </div>
-                    )}
-                </div>
-            )}
         </div>
     )
 }
