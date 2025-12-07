@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { Activity, ArrowRight, Bot, Clock, DollarSign, Zap, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { useExtensions } from '../lib/extensions'
+import ExtensionWidget from '../components/ExtensionWidget'
 
 interface Run {
     id: string
@@ -26,6 +28,9 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [statusFilter, setStatusFilter] = useState<string>('')
+    const { getDashboardWidgets } = useExtensions()
+    
+    const extensionWidgets = getDashboardWidgets()
 
     const fetchRuns = (isRefresh = false) => {
         if (isRefresh) setRefreshing(true)
@@ -118,6 +123,26 @@ export default function Dashboard() {
                     <div className="text-lg md:text-2xl font-bold">{runs.reduce((acc, r) => acc + (r.node_count || 0), 0)}</div>
                 </div>
             </div>
+
+            {extensionWidgets.length > 0 && (
+                <div className="space-y-4">
+                    <h3 className="font-semibold text-base md:text-lg">Extension Widgets</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {extensionWidgets.map(widget => (
+                            <ExtensionWidget
+                                key={`${widget.extensionId}-${widget.id}`}
+                                extensionName={widget.extensionName}
+                                apiBaseUrl={widget.apiBaseUrl}
+                                widgetId={widget.id}
+                                title={widget.title}
+                                description={widget.description}
+                                width={widget.width}
+                                height={widget.height}
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                 <div className="p-4 md:p-6 border-b border-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">

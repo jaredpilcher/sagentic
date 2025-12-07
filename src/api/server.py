@@ -497,24 +497,25 @@ def list_extensions(
 
 @app.get("/api/extensions/frontend-manifest")
 def get_frontend_manifest(db: Session = Depends(get_db)):
-    """Get manifest of enabled frontend extensions for the React app."""
+    """Get manifest of enabled extensions with their UI contribution points."""
     extensions = db.query(Extension).filter(
-        Extension.status == "enabled",
-        Extension.has_frontend == True
+        Extension.status == "enabled"
     ).all()
     
     manifests = []
     for ext in extensions:
         manifest = ext.manifest
+        contributes = manifest.get("contributes")
+        
         manifests.append(FrontendExtensionManifest(
             id=ext.id,
             name=ext.name,
             version=ext.version,
             description=ext.description,
             frontend_entry=manifest.get("frontend_entry"),
-            nav_items=manifest.get("nav_items"),
-            routes=manifest.get("routes"),
-            base_url=f"/api/extensions/{ext.name}/assets"
+            contributes=contributes,
+            base_url=f"/api/extensions/{ext.name}/assets",
+            api_base_url=f"/api/extensions/{ext.name}"
         ))
     
     return {"extensions": [m.model_dump() for m in manifests]}

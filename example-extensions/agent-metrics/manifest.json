@@ -5,17 +5,31 @@
     "author": "Sagentic",
     "backend_entry": "routes:register",
     "frontend_entry": "index.html",
-    "nav_items": [
-        {
-            "label": "Metrics",
-            "path": "/metrics",
-            "icon": "chart"
-        }
-    ],
-    "routes": [
-        {
-            "path": "/metrics",
-            "component": "MetricsDashboard"
-        }
-    ]
+    "contributes": {
+        "sidebar_panels": [
+            {
+                "id": "metrics-panel",
+                "title": "Agent Metrics",
+                "icon": "BarChart3",
+                "priority": 10
+            }
+        ],
+        "dashboard_widgets": [
+            {
+                "id": "metrics-summary",
+                "title": "Agent Performance",
+                "description": "Key metrics from your agent runs",
+                "width": "medium",
+                "height": "medium",
+                "priority": 10
+            }
+        ],
+        "run_actions": [
+            {
+                "id": "view-metrics",
+                "title": "View Metrics",
+                "icon": "BarChart3"
+            }
+        ]
+    }
 }

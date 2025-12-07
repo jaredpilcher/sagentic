@@ -1,14 +1,22 @@
 import { useState, useEffect, useLayoutEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, MessageSquare, Activity, Menu, X, Package } from 'lucide-react'
+import { LayoutDashboard, MessageSquare, Activity, Menu, X, Package, BarChart3, Settings, Zap, Database, FileText, Users, Shield } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { useExtensions } from '../lib/extensions'
 
 const getIsMobile = () => typeof window !== 'undefined' && window.innerWidth < 768
+
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+    BarChart3, Settings, Zap, Database, FileText, Users, Shield, Package, Activity, LayoutDashboard
+}
 
 export default function Layout({ children }: { children: React.ReactNode }) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [isMobile, setIsMobile] = useState(getIsMobile)
     const location = useLocation()
+    const { getSidebarPanels } = useExtensions()
+
+    const extensionPanels = getSidebarPanels()
 
     useLayoutEffect(() => {
         const mql = window.matchMedia('(max-width: 767px)')
@@ -56,6 +64,32 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <nav className="px-3 md:px-4 space-y-1">
                     <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
                     <NavItem to="/evaluations" icon={MessageSquare} label="Evaluations" />
+                    
+                    {extensionPanels.length > 0 && (
+                        <div className="pt-4 pb-2">
+                            <div className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                Extensions
+                            </div>
+                        </div>
+                    )}
+                    
+                    {extensionPanels.map(panel => {
+                        const Icon = iconMap[panel.icon || 'Package'] || Package
+                        return (
+                            <NavItem 
+                                key={`${panel.extensionId}-${panel.id}`}
+                                to={`/extensions/${panel.extensionName}`} 
+                                icon={Icon} 
+                                label={panel.title} 
+                            />
+                        )
+                    })}
+                    
+                    <div className="pt-4 pb-2">
+                        <div className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            System
+                        </div>
+                    </div>
                     <NavItem to="/extensions" icon={Package} label="Extensions" />
                 </nav>
                 <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
