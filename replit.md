@@ -152,7 +152,33 @@ See `example-extensions/agent-metrics/` for a complete example that adds:
 - `/api/extensions/agent-metrics/daily` - Daily metrics breakdown
 - `/api/extensions/agent-metrics/graphs` - Per-graph statistics
 
+## Customizable Dashboard
+
+The dashboard supports user-customizable widgets with drag-and-drop:
+
+### Built-in Widgets
+- **Metrics**: Total Runs, Completed, Failed, Avg Latency, Total Cost, Tokens, Graphs, Nodes
+- **Data**: Recent Runs list with status, timing, and token info
+
+### Widget Customization
+- Click **Add Widget** to open the widget library and add widgets
+- Click **Edit** to enter edit mode where you can:
+  - Drag widgets to rearrange them
+  - Resize widgets by dragging edges
+  - Remove widgets by clicking the X button
+- Click **Reset** to restore the default layout
+
+### Extension Widgets
+Extensions can contribute widgets to the library via the `contributes.dashboard_widgets` manifest section. Extension widgets appear in the widget library under "Extensions" category.
+
+Dashboard layout is persisted in localStorage and survives page refreshes.
+
 ## Recent Changes (Dec 7, 2025)
+- Added customizable widget dashboard with drag-and-drop (react-grid-layout)
+- Users can add, remove, rearrange, and resize widgets
+- Widget library includes built-in metrics and extension-contributed widgets
+- Dashboard layout persisted in localStorage
+- Extension widgets auto-removed when extensions are disabled
 - Added VS Code-style Extension system with contribution points
 - Extensions can inject UI at: sidebar panels, dashboard widgets, run actions
 - Extensions can add backend API routes and serve frontend assets

@@ -49,7 +49,7 @@ export default function CustomizableDashboard() {
 
     const extensionWidgets: WidgetDefinition[] = useMemo(() => {
         return extensionWidgetContributions.map(w => ({
-            id: `ext-${w.extensionName}-${w.id}`,
+            id: `ext:${w.extensionName}:${w.id}`,
             title: w.title,
             description: w.description || `Widget from ${w.extensionName}`,
             icon: BarChart3,
@@ -64,6 +64,22 @@ export default function CustomizableDashboard() {
             extensionApiBaseUrl: w.apiBaseUrl
         }))
     }, [extensionWidgetContributions])
+
+    useEffect(() => {
+        const extensionWidgetIds = new Set(extensionWidgets.map(w => w.id))
+        const validWidgets = config.widgets.filter(w => {
+            if (w.widgetId.startsWith('ext:')) {
+                return extensionWidgetIds.has(w.widgetId)
+            }
+            return findWidgetDefinition(w.widgetId, []) !== undefined
+        })
+        
+        if (validWidgets.length !== config.widgets.length) {
+            const newConfig = { ...config, widgets: validWidgets }
+            setConfig(newConfig)
+            saveDashboardConfig(newConfig)
+        }
+    }, [extensionWidgets])
 
     useEffect(() => {
         const handleResize = () => {
@@ -184,7 +200,7 @@ export default function CustomizableDashboard() {
 
         if (def.component === 'ExtensionWidget' && def.extensionName) {
             const extWidget = extensionWidgetContributions.find(
-                w => `ext-${w.extensionName}-${w.id}` === instance.widgetId
+                w => `ext:${w.extensionName}:${w.id}` === instance.widgetId
             )
             if (extWidget) {
                 return (
