@@ -146,11 +146,51 @@ def register(router):
 
 Routes are mounted at `/api/extensions/{extension_name}/...`
 
+### Extension Data Storage
+Extensions can persist their own data securely using the ExtensionStorage API:
+
+```python
+from src.extensions.storage import ExtensionStorage
+
+storage = ExtensionStorage("my-extension")
+
+# Store any JSON-serializable data
+storage.set("user_preferences", {"theme": "dark", "refresh_rate": 30})
+
+# Retrieve data (with optional default)
+prefs = storage.get("user_preferences", {})
+
+# Delete data
+storage.delete("user_preferences")
+
+# List all keys
+keys = storage.list()
+
+# Get all key-value pairs
+all_data = storage.get_all()
+```
+
+**Security:**
+- Each extension has its own isolated namespace
+- Extensions cannot access other extensions' data
+- Data is stored in PostgreSQL and persists across restarts
+- When an extension is uninstalled, its data is automatically deleted
+
+**REST API for extension data:**
+- `GET /api/extensions/{id}/data` - List all data keys
+- `GET /api/extensions/{id}/data/{key}` - Get a value
+- `PUT /api/extensions/{id}/data/{key}` - Set a value
+- `DELETE /api/extensions/{id}/data/{key}` - Delete a key
+
+Extensions can also use the `/api/extensions/by-name/{name}/data/...` endpoints for convenience.
+
 ### Example Extension
 See `example-extensions/agent-metrics/` for a complete example that adds:
 - `/api/extensions/agent-metrics/stats` - Aggregate statistics
 - `/api/extensions/agent-metrics/daily` - Daily metrics breakdown
 - `/api/extensions/agent-metrics/graphs` - Per-graph statistics
+- `/api/extensions/agent-metrics/settings` - Extension settings (demonstrates storage)
+- `/api/extensions/agent-metrics/bookmarks` - Bookmarked runs (demonstrates list storage)
 
 ## Customizable Dashboard
 

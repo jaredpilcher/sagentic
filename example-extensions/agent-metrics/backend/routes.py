@@ -3,11 +3,18 @@ Agent Metrics Extension - Backend Routes
 
 This extension adds analytics endpoints to compute aggregate metrics
 from the workflow runs data.
+
+Demonstrates:
+- Querying the main database (runs, nodes, messages)
+- Using ExtensionStorage for persistent extension-specific data
 """
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta
+
+
+EXTENSION_NAME = "agent-metrics"
 
 
 def register(router: APIRouter):
@@ -160,6 +167,76 @@ def register(router: APIRouter):
             }
         finally:
             db.close()
+    
+    @router.get("/settings")
+    def get_settings():
+        """Get extension settings from persistent storage."""
+        from src.extensions.storage import ExtensionStorage
+        
+        storage = ExtensionStorage(EXTENSION_NAME)
+        return {
+            "default_period_days": storage.get("default_period_days", 7),
+            "refresh_interval_seconds": storage.get("refresh_interval_seconds", 60),
+            "show_cost_data": storage.get("show_cost_data", True)
+        }
+    
+    @router.put("/settings")
+    def update_settings(body: dict):
+        """Update extension settings in persistent storage."""
+        from src.extensions.storage import ExtensionStorage
+        
+        storage = ExtensionStorage(EXTENSION_NAME)
+        
+        if "default_period_days" in body:
+            storage.set("default_period_days", body["default_period_days"])
+        if "refresh_interval_seconds" in body:
+            storage.set("refresh_interval_seconds", body["refresh_interval_seconds"])
+        if "show_cost_data" in body:
+            storage.set("show_cost_data", body["show_cost_data"])
+        
+        return {"success": True, "settings": get_settings()}
+    
+    @router.post("/bookmark")
+    def bookmark_run(body: dict):
+        """Bookmark a run for later review (demonstrates list storage)."""
+        from src.extensions.storage import ExtensionStorage
+        
+        storage = ExtensionStorage(EXTENSION_NAME)
+        run_id = body.get("run_id")
+        note = body.get("note", "")
+        
+        if not run_id:
+            return {"success": False, "error": "run_id required"}
+        
+        bookmarks = storage.get("bookmarks", [])
+        bookmarks.append({
+            "run_id": run_id,
+            "note": note,
+            "bookmarked_at": datetime.utcnow().isoformat()
+        })
+        storage.set("bookmarks", bookmarks)
+        
+        return {"success": True, "count": len(bookmarks)}
+    
+    @router.get("/bookmarks")
+    def list_bookmarks():
+        """List all bookmarked runs."""
+        from src.extensions.storage import ExtensionStorage
+        
+        storage = ExtensionStorage(EXTENSION_NAME)
+        return {"bookmarks": storage.get("bookmarks", [])}
+    
+    @router.delete("/bookmark/{run_id}")
+    def remove_bookmark(run_id: str):
+        """Remove a bookmarked run."""
+        from src.extensions.storage import ExtensionStorage
+        
+        storage = ExtensionStorage(EXTENSION_NAME)
+        bookmarks = storage.get("bookmarks", [])
+        bookmarks = [b for b in bookmarks if b.get("run_id") != run_id]
+        storage.set("bookmarks", bookmarks)
+        
+        return {"success": True, "count": len(bookmarks)}
     
     def cleanup():
         """Cleanup function called when extension is unloaded."""

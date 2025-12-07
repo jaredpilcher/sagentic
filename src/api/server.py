@@ -11,7 +11,7 @@ import tempfile
 import os
 
 from ..db.database import get_db
-from ..db.models import Run, NodeExecution, Message, Edge, Evaluation, Extension
+from ..db.models import Run, NodeExecution, Message, Edge, Evaluation, Extension, ExtensionData
 from ..extensions.manager import ExtensionManager, EXTENSIONS_DIR
 from ..extensions.schemas import (
     ExtensionInfo, ExtensionManifest, ExtensionListResponse,
@@ -663,6 +663,188 @@ def get_extension(extension_id: str, db: Session = Depends(get_db)):
 
 
 EXTENSIONS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@app.get("/api/extensions/{extension_id}/data")
+def list_extension_data(
+    extension_id: str,
+    prefix: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """List all data keys for an extension, optionally filtered by prefix."""
+    ext = db.query(Extension).filter(Extension.id == extension_id).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    query = db.query(ExtensionData).filter(ExtensionData.extension_id == extension_id)
+    if prefix:
+        query = query.filter(ExtensionData.key.startswith(prefix))
+    
+    entries = query.order_by(ExtensionData.key).all()
+    
+    return {
+        "extension_id": extension_id,
+        "extension_name": ext.name,
+        "count": len(entries),
+        "entries": [
+            {
+                "key": entry.key,
+                "value": entry.value,
+                "created_at": entry.created_at.isoformat() if entry.created_at else None,
+                "updated_at": entry.updated_at.isoformat() if entry.updated_at else None
+            }
+            for entry in entries
+        ]
+    }
+
+
+@app.get("/api/extensions/{extension_id}/data/{key:path}")
+def get_extension_data(
+    extension_id: str,
+    key: str,
+    db: Session = Depends(get_db)
+):
+    """Get a specific data value for an extension by key."""
+    ext = db.query(Extension).filter(Extension.id == extension_id).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    entry = db.query(ExtensionData).filter(
+        ExtensionData.extension_id == extension_id,
+        ExtensionData.key == key
+    ).first()
+    
+    if not entry:
+        raise HTTPException(status_code=404, detail=f"Data key '{key}' not found")
+    
+    return {
+        "key": entry.key,
+        "value": entry.value,
+        "created_at": entry.created_at.isoformat() if entry.created_at else None,
+        "updated_at": entry.updated_at.isoformat() if entry.updated_at else None
+    }
+
+
+@app.put("/api/extensions/{extension_id}/data/{key:path}")
+def set_extension_data(
+    extension_id: str,
+    key: str,
+    body: dict,
+    db: Session = Depends(get_db)
+):
+    """Set a data value for an extension. Creates or updates the key."""
+    ext = db.query(Extension).filter(Extension.id == extension_id).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    value = body.get("value")
+    
+    entry = db.query(ExtensionData).filter(
+        ExtensionData.extension_id == extension_id,
+        ExtensionData.key == key
+    ).first()
+    
+    if entry:
+        entry.value = value
+        entry.updated_at = datetime.utcnow()
+    else:
+        entry = ExtensionData(
+            id=str(uuid.uuid4()),
+            extension_id=extension_id,
+            key=key,
+            value=value
+        )
+        db.add(entry)
+    
+    db.commit()
+    
+    return {
+        "success": True,
+        "key": key,
+        "created": entry.created_at == entry.updated_at if entry.updated_at else True
+    }
+
+
+@app.delete("/api/extensions/{extension_id}/data/{key:path}")
+def delete_extension_data(
+    extension_id: str,
+    key: str,
+    db: Session = Depends(get_db)
+):
+    """Delete a specific data key for an extension."""
+    ext = db.query(Extension).filter(Extension.id == extension_id).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    entry = db.query(ExtensionData).filter(
+        ExtensionData.extension_id == extension_id,
+        ExtensionData.key == key
+    ).first()
+    
+    if not entry:
+        raise HTTPException(status_code=404, detail=f"Data key '{key}' not found")
+    
+    db.delete(entry)
+    db.commit()
+    
+    return {"success": True, "key": key}
+
+
+@app.get("/api/extensions/by-name/{extension_name}/data")
+def list_extension_data_by_name(
+    extension_name: str,
+    prefix: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """List data for an extension by its name (for use by extension backends)."""
+    ext = db.query(Extension).filter(Extension.name == extension_name).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    return list_extension_data(ext.id, prefix, db)
+
+
+@app.get("/api/extensions/by-name/{extension_name}/data/{key:path}")
+def get_extension_data_by_name(
+    extension_name: str,
+    key: str,
+    db: Session = Depends(get_db)
+):
+    """Get data for an extension by its name."""
+    ext = db.query(Extension).filter(Extension.name == extension_name).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    return get_extension_data(ext.id, key, db)
+
+
+@app.put("/api/extensions/by-name/{extension_name}/data/{key:path}")
+def set_extension_data_by_name(
+    extension_name: str,
+    key: str,
+    body: dict,
+    db: Session = Depends(get_db)
+):
+    """Set data for an extension by its name."""
+    ext = db.query(Extension).filter(Extension.name == extension_name).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    return set_extension_data(ext.id, key, body, db)
+
+
+@app.delete("/api/extensions/by-name/{extension_name}/data/{key:path}")
+def delete_extension_data_by_name(
+    extension_name: str,
+    key: str,
+    db: Session = Depends(get_db)
+):
+    """Delete data for an extension by its name."""
+    ext = db.query(Extension).filter(Extension.name == extension_name).first()
+    if not ext:
+        raise HTTPException(status_code=404, detail="Extension not found")
+    
+    return delete_extension_data(ext.id, key, db)
 
 
 @app.on_event("startup")

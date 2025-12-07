@@ -173,3 +173,29 @@ class Extension(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     extra_data = Column(JSONB, nullable=True)
+    
+    data_entries = relationship("ExtensionData", back_populates="extension", cascade="all, delete-orphan")
+
+
+class ExtensionData(Base):
+    """Persistent key-value storage for extensions.
+    
+    Each extension can store its own data using namespaced keys.
+    Data is isolated per extension for security.
+    """
+    __tablename__ = 'extension_data'
+    
+    id = Column(String, primary_key=True, default=generate_uuid)
+    extension_id = Column(String, ForeignKey('extensions.id', ondelete='CASCADE'), nullable=False, index=True)
+    
+    key = Column(String, nullable=False, index=True)
+    value = Column(JSONB, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    extension = relationship("Extension", back_populates="data_entries")
+    
+    __table_args__ = (
+        Index('ix_extension_data_ext_key', 'extension_id', 'key', unique=True),
+    )
