@@ -29,6 +29,14 @@ class RunActionContribution(BaseModel):
     handler: Optional[str] = None
 
 
+class AgentActionContribution(BaseModel):
+    id: str
+    title: str
+    icon: Optional[str] = "Zap"
+    when: Optional[str] = None
+    handler: Optional[str] = None
+
+
 class ContextMenuContribution(BaseModel):
     id: str
     title: str
@@ -62,6 +70,7 @@ class ExtensionContributes(BaseModel):
     sidebar_panels: Optional[List[SidebarPanelContribution]] = None
     dashboard_widgets: Optional[List[DashboardWidgetContribution]] = None
     run_actions: Optional[List[RunActionContribution]] = None
+    agent_actions: Optional[List[AgentActionContribution]] = None
     node_actions: Optional[List[RunActionContribution]] = None
     context_menus: Optional[List[ContextMenuContribution]] = None
     settings_panels: Optional[List[SettingsPanelContribution]] = None

@@ -2,6 +2,8 @@ import { Routes, Route } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import Runs from './pages/Runs'
 import RunDetail from './pages/RunDetail'
+import Agents from './pages/Agents'
+import AgentDetail from './pages/AgentDetail'
 import Evaluations from './pages/Evaluations'
 import Extensions from './pages/Extensions'
 import ExtensionPanel from './pages/ExtensionPanel'
@@ -14,6 +16,8 @@ function App() {
       <Layout>
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/agents" element={<Agents />} />
+          <Route path="/agents/:graphId" element={<AgentDetail />} />
           <Route path="/runs" element={<Runs />} />
           <Route path="/runs/:runId" element={<RunDetail />} />
           <Route path="/evaluations" element={<Evaluations />} />

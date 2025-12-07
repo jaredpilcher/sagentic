@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, case
 from typing import List, Optional
 from datetime import datetime
 from pathlib import Path
@@ -174,6 +174,100 @@ def ingest_trace(trace: TraceIngest, db: Session = Depends(get_db)):
     )
 
 
+@app.get("/api/agents")
+def list_agents(
+    db: Session = Depends(get_db)
+):
+    """List all agents/graphs with aggregated statistics."""
+    from sqlalchemy import func
+    
+    agents_query = db.query(
+        Run.graph_id,
+        func.count(Run.id).label('total_runs'),
+        func.sum(case((Run.status == 'completed', 1), else_=0)).label('completed_runs'),
+        func.sum(case((Run.status == 'failed', 1), else_=0)).label('failed_runs'),
+        func.sum(case((Run.status == 'running', 1), else_=0)).label('running_runs'),
+        func.sum(Run.total_tokens).label('total_tokens'),
+        func.sum(Run.total_cost).label('total_cost'),
+        func.avg(Run.total_latency_ms).label('avg_latency_ms'),
+        func.max(Run.started_at).label('last_run_at'),
+        func.min(Run.started_at).label('first_run_at')
+    ).filter(
+        Run.graph_id.isnot(None)
+    ).group_by(Run.graph_id).all()
+    
+    agents = []
+    for agent in agents_query:
+        agents.append({
+            "graph_id": agent.graph_id,
+            "total_runs": agent.total_runs or 0,
+            "completed_runs": agent.completed_runs or 0,
+            "failed_runs": agent.failed_runs or 0,
+            "running_runs": agent.running_runs or 0,
+            "success_rate": round((agent.completed_runs or 0) / max(agent.total_runs, 1) * 100, 1),
+            "total_tokens": agent.total_tokens or 0,
+            "total_cost": float(agent.total_cost or 0),
+            "avg_latency_ms": int(agent.avg_latency_ms or 0),
+            "last_run_at": agent.last_run_at.isoformat() if agent.last_run_at else None,
+            "first_run_at": agent.first_run_at.isoformat() if agent.first_run_at else None
+        })
+    
+    agents.sort(key=lambda x: x["last_run_at"] or "", reverse=True)
+    
+    return {"agents": agents, "total": len(agents)}
+
+
+@app.get("/api/agents/{graph_id}")
+def get_agent(graph_id: str, db: Session = Depends(get_db)):
+    """Get detailed statistics for a specific agent/graph."""
+    from sqlalchemy import func
+    
+    agent = db.query(
+        Run.graph_id,
+        func.count(Run.id).label('total_runs'),
+        func.sum(case((Run.status == 'completed', 1), else_=0)).label('completed_runs'),
+        func.sum(case((Run.status == 'failed', 1), else_=0)).label('failed_runs'),
+        func.sum(case((Run.status == 'running', 1), else_=0)).label('running_runs'),
+        func.sum(Run.total_tokens).label('total_tokens'),
+        func.sum(Run.total_cost).label('total_cost'),
+        func.avg(Run.total_latency_ms).label('avg_latency_ms'),
+        func.max(Run.started_at).label('last_run_at'),
+        func.min(Run.started_at).label('first_run_at')
+    ).filter(Run.graph_id == graph_id).group_by(Run.graph_id).first()
+    
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    recent_runs = db.query(Run).filter(
+        Run.graph_id == graph_id
+    ).order_by(desc(Run.started_at)).limit(5).all()
+    
+    return {
+        "graph_id": agent.graph_id,
+        "total_runs": agent.total_runs or 0,
+        "completed_runs": agent.completed_runs or 0,
+        "failed_runs": agent.failed_runs or 0,
+        "running_runs": agent.running_runs or 0,
+        "success_rate": round((agent.completed_runs or 0) / max(agent.total_runs, 1) * 100, 1),
+        "total_tokens": agent.total_tokens or 0,
+        "total_cost": float(agent.total_cost or 0),
+        "avg_latency_ms": int(agent.avg_latency_ms or 0),
+        "last_run_at": agent.last_run_at.isoformat() if agent.last_run_at else None,
+        "first_run_at": agent.first_run_at.isoformat() if agent.first_run_at else None,
+        "recent_runs": [
+            {
+                "id": run.id,
+                "status": run.status,
+                "started_at": run.started_at.isoformat() if run.started_at else None,
+                "total_tokens": run.total_tokens or 0,
+                "total_cost": float(run.total_cost or 0),
+                "total_latency_ms": run.total_latency_ms or 0
+            }
+            for run in recent_runs
+        ]
+    }
+
+
 @app.get("/api/runs", response_model=List[RunSummary])
 def list_runs(
     limit: int = Query(50, ge=1, le=500),
@@ -181,10 +275,14 @@ def list_runs(
     framework: Optional[str] = None,
     status: Optional[str] = None,
     agent_id: Optional[str] = None,
+    graph_id: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """List all workflow runs with summary info."""
     query = db.query(Run)
+    
+    if graph_id:
+        query = query.filter(Run.graph_id == graph_id)
     
     if framework:
         query = query.filter(Run.framework == framework)
@@ -211,7 +309,9 @@ def list_runs(
             total_latency_ms=run.total_latency_ms or 0,
             node_count=node_count,
             tags=run.tags,
-            error=run.error
+            error=run.error,
+            input_state=run.input_state,
+            output_state=run.output_state
         ))
     
     return result

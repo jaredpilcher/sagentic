@@ -1,13 +1,13 @@
 import { useState, useEffect, useLayoutEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, MessageSquare, Activity, Menu, X, Package, BarChart3, Settings, Zap, Database, FileText, Users, Shield, History } from 'lucide-react'
+import { LayoutDashboard, MessageSquare, Activity, Menu, X, Package, BarChart3, Settings, Zap, Database, FileText, Users, Shield, History, Bot } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useExtensions } from '../lib/extensions'
 
 const getIsMobile = () => typeof window !== 'undefined' && window.innerWidth < 768
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-    BarChart3, Settings, Zap, Database, FileText, Users, Shield, Package, Activity, LayoutDashboard
+    BarChart3, Settings, Zap, Database, FileText, Users, Shield, Package, Activity, LayoutDashboard, Bot
 }
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -63,6 +63,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </div>
                 <nav className="px-3 md:px-4 space-y-1">
                     <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
+                    <NavItem to="/agents" icon={Bot} label="Agents" />
                     <NavItem to="/runs" icon={History} label="All Runs" />
                     <NavItem to="/evaluations" icon={MessageSquare} label="Evaluations" />
                     
@@ -126,8 +127,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             {isMobile && (
                 <nav className="fixed bottom-0 left-0 right-0 h-16 bg-card/95 backdrop-blur-xl border-t border-border z-30 flex items-center justify-around px-4 safe-area-pb">
-                    <MobileNavItem to="/" icon={LayoutDashboard} label="Dashboard" />
-                    <MobileNavItem to="/evaluations" icon={MessageSquare} label="Evals" />
+                    <MobileNavItem to="/" icon={LayoutDashboard} label="Home" />
+                    <MobileNavItem to="/agents" icon={Bot} label="Agents" />
+                    <MobileNavItem to="/runs" icon={History} label="Runs" />
                     <MobileNavItem to="/extensions" icon={Package} label="Extensions" />
                 </nav>
             )}

@@ -150,6 +150,8 @@ class RunSummary(BaseModel):
     node_count: int
     tags: Optional[List[str]]
     error: Optional[str]
+    input_state: Optional[Dict[str, Any]] = None
+    output_state: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True

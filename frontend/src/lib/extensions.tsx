@@ -26,6 +26,14 @@ export interface RunActionContribution {
     handler?: string
 }
 
+export interface AgentActionContribution {
+    id: string
+    title: string
+    icon?: string
+    when?: string
+    handler?: string
+}
+
 export interface ContextMenuContribution {
     id: string
     title: string
@@ -39,6 +47,7 @@ export interface ExtensionContributes {
     sidebar_panels?: SidebarPanelContribution[]
     dashboard_widgets?: DashboardWidgetContribution[]
     run_actions?: RunActionContribution[]
+    agent_actions?: AgentActionContribution[]
     node_actions?: RunActionContribution[]
     context_menus?: ContextMenuContribution[]
     settings_panels?: SidebarPanelContribution[]
@@ -63,6 +72,7 @@ interface ExtensionContextType {
     getSidebarPanels: () => Array<SidebarPanelContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
     getDashboardWidgets: () => Array<DashboardWidgetContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
     getRunActions: () => Array<RunActionContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
+    getAgentActions: () => Array<AgentActionContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }>
     executeAction: (extensionName: string, actionId: string, context: Record<string, unknown>) => Promise<unknown>
 }
 
@@ -143,6 +153,23 @@ export function ExtensionProvider({ children }: { children: ReactNode }) {
         return actions
     }, [extensions])
 
+    const getAgentActions = useCallback(() => {
+        const actions: Array<AgentActionContribution & { extensionId: string; extensionName: string; apiBaseUrl: string }> = []
+        for (const ext of extensions) {
+            if (ext.contributes?.agent_actions) {
+                for (const action of ext.contributes.agent_actions) {
+                    actions.push({
+                        ...action,
+                        extensionId: ext.id,
+                        extensionName: ext.name,
+                        apiBaseUrl: ext.api_base_url
+                    })
+                }
+            }
+        }
+        return actions
+    }, [extensions])
+
     const executeAction = useCallback(async (extensionName: string, actionId: string, context: Record<string, unknown>) => {
         const res = await fetch(`/api/extensions/${extensionName}/actions/${actionId}`, {
             method: 'POST',
@@ -162,6 +189,7 @@ export function ExtensionProvider({ children }: { children: ReactNode }) {
             getSidebarPanels,
             getDashboardWidgets,
             getRunActions,
+            getAgentActions,
             executeAction
         }}>
             {children}
