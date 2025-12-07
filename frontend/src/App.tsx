@@ -7,6 +7,7 @@ import AgentDetail from './pages/AgentDetail'
 import Evaluations from './pages/Evaluations'
 import Extensions from './pages/Extensions'
 import ExtensionPanel from './pages/ExtensionPanel'
+import Docs from './pages/Docs'
 import Layout from './components/Layout'
 import ExtensionModal from './components/ExtensionModal'
 import { ExtensionRegistryProvider, ExtensionModalProvider } from './lib/extensions'
@@ -26,6 +27,8 @@ function App() {
             <Route path="/extensions" element={<Extensions />} />
             <Route path="/extensions/:extensionName" element={<ExtensionPanel />} />
             <Route path="/extensions/:extensionName/*" element={<ExtensionPanel />} />
+            <Route path="/docs" element={<Docs />} />
+            <Route path="/docs/:slug" element={<Docs />} />
           </Routes>
         </Layout>
         <ExtensionModal />

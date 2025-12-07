@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, MessageSquare, Activity, Menu, X, Package, BarChart3, Settings, Zap, Database, FileText, Users, Shield, History, Bot } from 'lucide-react'
+import { LayoutDashboard, MessageSquare, Activity, Menu, X, Package, BarChart3, Settings, Zap, Database, FileText, Users, Shield, History, Bot, BookOpen } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useExtensions } from '../lib/extensions'
 import type { SidebarPanelContribution } from '../lib/extension-types'
@@ -68,6 +68,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <NavItem to="/agents" icon={Bot} label="Agents" />
                     <NavItem to="/runs" icon={History} label="All Runs" />
                     <NavItem to="/evaluations" icon={MessageSquare} label="Evaluations" />
+                    <NavItem to="/docs" icon={BookOpen} label="Docs" />
 
                     {extensionPanels.length > 0 && (
                         <div className="pt-4 pb-2">
@@ -132,6 +133,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <MobileNavItem to="/" icon={LayoutDashboard} label="Home" />
                     <MobileNavItem to="/agents" icon={Bot} label="Agents" />
                     <MobileNavItem to="/runs" icon={History} label="Runs" />
+                    <MobileNavItem to="/docs" icon={BookOpen} label="Docs" />
                     <MobileNavItem to="/extensions" icon={Package} label="Extensions" />
                 </nav>
             )}
